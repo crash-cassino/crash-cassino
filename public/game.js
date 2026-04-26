@@ -23,6 +23,7 @@ const state = {
   inRound: false,
   round: null,
   multiplier: 1,
+  visualMultiplier: 1,
   lastMultiplier: 1,
   hasSettled: false,
   path: [],
@@ -84,7 +85,11 @@ function resizeCanvas() {
 function getMultiplier(elapsedMs) {
   const seconds = elapsedMs / 1000;
   const growthRate = state.round && Number.isFinite(Number(state.round.growthRate)) ? Number(state.round.growthRate) : 0.11;
-  const base = Math.exp(growthRate * seconds);
+  return Number(Math.max(1, Math.exp(growthRate * seconds)).toFixed(2));
+}
+
+function getVisualMultiplier(logicalMultiplier, elapsedMs) {
+  const seconds = elapsedMs / 1000;
   const waveA = Math.sin(seconds * 4.2 + state.roundNoise.seedA) * state.roundNoise.amplitude;
   const waveB = Math.cos(seconds * 2.5 + state.roundNoise.seedB) * (state.roundNoise.amplitude * 0.55);
   const waveC = Math.sin(seconds * 6.8 + state.roundNoise.seedA * 0.7) * (state.roundNoise.amplitude * 0.25);
@@ -97,9 +102,10 @@ function getMultiplier(elapsedMs) {
   const burst = Math.exp(-(burstDistance * burstDistance) / (2 * state.roundNoise.burstWidth * state.roundNoise.burstWidth));
   const burstEffect = burst * state.roundNoise.burstStrength;
 
-  const noisy = Math.max(1.0, base * (1 + waveA + waveB + waveC + driftEffect + burstEffect));
-  const stable = Math.max(state.lastMultiplier + 0.01, noisy);
-  return Number(stable.toFixed(2));
+  const visualNoise = 1 + waveA + waveB + waveC + driftEffect + burstEffect;
+  const boosted = logicalMultiplier * visualNoise;
+  const clamped = Math.max(1, Math.min(boosted, logicalMultiplier * 1.08));
+  return Number(clamped.toFixed(2));
 }
 
 function toCanvasX(normalizedX) {
@@ -396,11 +402,12 @@ function runRoundLoop(startTime) {
 
   const elapsed = performance.now() - startTime;
   state.multiplier = getMultiplier(elapsed);
+  state.visualMultiplier = getVisualMultiplier(state.multiplier, elapsed);
   state.lastMultiplier = state.multiplier;
   multiplierField.textContent = `${state.multiplier.toFixed(2)}x`;
   state.path.push({
     x: Math.min(elapsed / state.round.durationMs, 1),
-    y: state.multiplier
+    y: state.visualMultiplier
   });
   drawChart();
 
@@ -460,6 +467,7 @@ async function startRound() {
     };
     state.path = [{ x: 0, y: 1 }];
     state.multiplier = 1;
+    state.visualMultiplier = 1;
     state.lastMultiplier = 1;
     targetCrashLabel.textContent = `${Number(data.crashPoint).toFixed(2)}x`;
     cashoutButton.disabled = false;
