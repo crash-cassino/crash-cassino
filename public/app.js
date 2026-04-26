@@ -22,7 +22,8 @@ const state = {
   hasSettled: false,
   explosionTTL: 0,
   streamerMode: false,
-  visualIntensity: 1
+  visualIntensity: 1,
+  authToken: localStorage.getItem("crashAuthToken") || ""
 };
 
 const drawCfg = {
@@ -39,6 +40,29 @@ function formatMoney(value) {
 function setStatus(text, color) {
   roundStatusEl.textContent = text;
   roundStatusEl.style.color = color || "#9ba7d4";
+}
+
+function getAuthHeaders() {
+  if (!state.authToken) {
+    return {};
+  }
+  return { Authorization: `Bearer ${state.authToken}` };
+}
+
+async function syncBalanceFromAccount() {
+  if (!state.authToken) {
+    return;
+  }
+  try {
+    const response = await fetch("/auth/me", { headers: getAuthHeaders() });
+    const data = await response.json();
+    if (response.ok) {
+      state.balance = Number(data.credits || 0);
+      balanceLabel.textContent = formatMoney(state.balance);
+    }
+  } catch (error) {
+    // Keep local fallback balance if auth is unavailable.
+  }
 }
 
 function resizeCanvasForViewport() {
@@ -396,4 +420,5 @@ window.addEventListener("resize", resizeCanvasForViewport);
 resizeCanvasForViewport();
 refreshStats();
 setInterval(refreshStats, 3000);
+syncBalanceFromAccount();
 requestAnimationFrame(render);

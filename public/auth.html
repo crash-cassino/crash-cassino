@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crash Cassino - Login</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="bg-orb orb-left"></div>
+    <div class="bg-orb orb-right"></div>
+    <div class="app app-narrow">
+      <header class="topbar">
+        <div>
+          <p class="kicker">Conta do jogador</p>
+          <h1>Acesso <span>Crash Cassino</span></h1>
+        </div>
+        <div class="topbar-actions">
+          <a class="pill-link" href="/">Voltar ao jogo</a>
+          <a class="pill-link" href="/admin.html">Admin</a>
+        </div>
+      </header>
+
+      <main class="single-column">
+        <section class="card">
+          <h2>Cadastro e login</h2>
+          <p id="authStatusText" class="small-text">Não autenticado</p>
+
+          <label>Email</label>
+          <input id="authEmailInput" type="email" placeholder="voce@email.com" />
+
+          <label>Senha</label>
+          <input id="authPasswordInput" type="password" placeholder="******" />
+
+          <button id="registerButton" class="btn btn-primary">Criar conta</button>
+          <button id="loginButton" class="btn btn-success">Entrar</button>
+          <button id="logoutButton" class="btn btn-muted">Sair da conta</button>
+        </section>
+      </main>
+    </div>
+
+    <script src="./auth.js"></script>
+  </body>
+</html>

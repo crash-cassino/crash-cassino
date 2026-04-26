@@ -88,6 +88,25 @@ body {
   font-size: 13px;
 }
 
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pill-link {
+  text-decoration: none;
+  background: rgba(32, 221, 255, 0.15);
+  color: var(--accent-2);
+  border: 1px solid rgba(32, 221, 255, 0.35);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.pill-link:hover {
+  background: rgba(32, 221, 255, 0.23);
+}
+
 .hud-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -116,6 +135,14 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: 18px;
+}
+
+.single-column {
+  max-width: 560px;
+}
+
+.app-narrow {
+  max-width: 860px;
 }
 
 .game-panel {
@@ -236,6 +263,28 @@ input {
   font-size: 16px;
 }
 
+select {
+  width: 100%;
+  background: #0a102b;
+  color: var(--text);
+  border: 1px solid #33407e;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+
+.small-text {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.hidden {
+  display: none;
+}
+
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -285,6 +334,10 @@ input {
   background: linear-gradient(90deg, #0ca874, var(--success));
 }
 
+.btn-muted {
+  background: linear-gradient(90deg, #3e4d89, #5566a8);
+}
+
 .helper p {
   margin: 8px 0;
   color: var(--muted);
@@ -306,6 +359,16 @@ input {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pill-link {
+    text-align: center;
   }
 
   .topbar h1 {

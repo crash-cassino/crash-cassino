@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crash Cassino - Admin</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="bg-orb orb-left"></div>
+    <div class="bg-orb orb-right"></div>
+    <div class="app app-narrow">
+      <header class="topbar">
+        <div>
+          <p class="kicker">Painel administrativo</p>
+          <h1>Admin <span>Crash Cassino</span></h1>
+        </div>
+        <div class="topbar-actions">
+          <a class="pill-link" href="/">Voltar ao jogo</a>
+          <a class="pill-link" href="/auth.html">Login</a>
+        </div>
+      </header>
+
+      <main class="single-column">
+        <section class="card">
+          <h2>Credito de jogadores</h2>
+          <p id="adminStatusText" class="small-text">Faça login como admin em /auth.html</p>
+
+          <label>Jogador</label>
+          <select id="adminUserSelect"></select>
+
+          <label>Quantidade de creditos</label>
+          <input id="adminCreditAmountInput" type="number" min="1" step="1" value="100" />
+
+          <label>Motivo</label>
+          <input id="adminCreditReasonInput" type="text" value="bonus_inicial" />
+
+          <button id="refreshUsersButton" class="btn btn-primary">Atualizar jogadores</button>
+          <button id="addCreditsButton" class="btn btn-success">Adicionar creditos</button>
+        </section>
+      </main>
+    </div>
+
+    <script src="./admin.js"></script>
+  </body>
+</html>
