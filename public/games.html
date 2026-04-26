@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Menu de Jogos</title>
+    <link rel="stylesheet" href="./portal.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <p class="kicker">Lobby</p>
+        <h1 class="title">Escolha seu jogo</h1>
+      </header>
+
+      <section class="card">
+        <p id="statusText" class="status">Carregando conta...</p>
+        <div class="grid">
+          <div>
+            <label>Jogador</label>
+            <input id="playerField" type="text" readonly />
+          </div>
+          <div>
+            <label>Creditos</label>
+            <input id="creditsField" type="text" readonly />
+          </div>
+        </div>
+        <div class="actions">
+          <a href="/game.html" class="btn btn-primary" style="text-decoration:none;display:inline-block;">Jogar Crash</a>
+          <a href="/slot.html" class="btn btn-success" style="text-decoration:none;display:inline-block;">Jogar Caça-níquel</a>
+          <a href="/user.html" class="btn btn-primary" style="text-decoration:none;display:inline-block;">Painel do usuário</a>
+        </div>
+      </section>
+    </div>
+    <script src="./games.js"></script>
+  </body>
+</html>

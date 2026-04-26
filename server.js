@@ -216,6 +216,32 @@ function createRound() {
   };
 }
 
+function pickSlotSymbol() {
+  const roll = randomFloat();
+  if (roll < 0.34) return "cherry";
+  if (roll < 0.60) return "lemon";
+  if (roll < 0.78) return "bell";
+  if (roll < 0.92) return "seven";
+  return "diamond";
+}
+
+function getSlotMultiplier(reels) {
+  const [a, b, c] = reels;
+  if (a === b && b === c) {
+    if (a === "cherry") return 2.0;
+    if (a === "lemon") return 3.0;
+    if (a === "bell") return 5.0;
+    if (a === "seven") return 10.0;
+    if (a === "diamond") return 20.0;
+  }
+
+  // small consolation for two matching cherries
+  if ((a === b || b === c || a === c) && (a === "cherry" || b === "cherry" || c === "cherry")) {
+    return 1.15;
+  }
+  return 0;
+}
+
 async function mapUserFromId(userId) {
   const result = await dbPool.query(
     `SELECT id, email, role, is_active, email_verified, twofa_enabled, credits, created_at
@@ -248,7 +274,8 @@ app.get("/api", (req, res) => {
       adminSetStatus: "PATCH /admin/users/:id/status",
       adminAddCredits: "POST /admin/credits/add",
       startRound: "POST /round/start",
-      settleBet: "POST /bet/settle"
+      settleBet: "POST /bet/settle",
+      slotSpin: "POST /slot/spin"
     }
   });
 });
@@ -638,6 +665,60 @@ app.post("/bet/settle", requireDatabase, requireAuth, requirePlayer, async (req,
   } catch (error) {
     await client.query("ROLLBACK");
     return res.status(500).json({ error: "Falha ao liquidar aposta" });
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/slot/spin", requireDatabase, requireAuth, requirePlayer, async (req, res) => {
+  const wager = Number(req.body.wager);
+  if (!Number.isFinite(wager) || wager <= 0) {
+    return res.status(400).json({ error: "Aposta inválida" });
+  }
+
+  const client = await dbPool.connect();
+  try {
+    await client.query("BEGIN");
+    const found = await client.query("SELECT credits, is_active FROM users WHERE id = $1 FOR UPDATE", [req.user.userId]);
+    if (found.rows.length === 0 || !found.rows[0].is_active) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ error: "Conta inativa" });
+    }
+
+    const credits = Number(found.rows[0].credits || 0);
+    if (credits < wager) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Saldo insuficiente" });
+    }
+
+    const reels = [pickSlotSymbol(), pickSlotSymbol(), pickSlotSymbol()];
+    const multiplier = getSlotMultiplier(reels);
+    const payout = Number((wager * multiplier).toFixed(2));
+    const newBalance = Number((credits - wager + payout).toFixed(2));
+
+    await client.query("UPDATE users SET credits = $1, updated_at = NOW() WHERE id = $2", [newBalance, req.user.userId]);
+    await client.query(
+      "INSERT INTO credit_transactions (user_id, amount, reason, admin_user_id) VALUES ($1, $2, $3, $4)",
+      [req.user.userId, -wager, "slot_wager", null]
+    );
+    if (payout > 0) {
+      await client.query(
+        "INSERT INTO credit_transactions (user_id, amount, reason, admin_user_id) VALUES ($1, $2, $3, $4)",
+        [req.user.userId, payout, "slot_payout", null]
+      );
+    }
+    await client.query("COMMIT");
+
+    return res.json({
+      reels,
+      multiplier,
+      payout,
+      won: payout > 0,
+      balance: newBalance
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return res.status(500).json({ error: "Falha no giro do caça-níquel" });
   } finally {
     client.release();
   }

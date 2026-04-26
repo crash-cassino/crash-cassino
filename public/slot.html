@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Caça-níquel</title>
+    <link rel="stylesheet" href="./portal.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <p class="kicker">Slot</p>
+        <h1 class="title">Caça-níquel Neon</h1>
+      </header>
+
+      <section class="card">
+        <p id="statusText" class="status">Carregando conta...</p>
+        <div class="grid">
+          <div>
+            <label>Saldo</label>
+            <input id="creditsField" type="text" readonly />
+          </div>
+          <div>
+            <label>Aposta por giro</label>
+            <input id="wagerInput" type="number" min="1" step="1" value="10" />
+          </div>
+        </div>
+
+        <div id="reelsWrap" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0;">
+          <div id="reel1" style="border:1px solid #33448b;border-radius:12px;padding:18px 0;text-align:center;font-size:28px;background:#0d1537;">🍒</div>
+          <div id="reel2" style="border:1px solid #33448b;border-radius:12px;padding:18px 0;text-align:center;font-size:28px;background:#0d1537;">🍋</div>
+          <div id="reel3" style="border:1px solid #33448b;border-radius:12px;padding:18px 0;text-align:center;font-size:28px;background:#0d1537;">🔔</div>
+        </div>
+
+        <div class="actions">
+          <button id="spinButton" class="btn btn-primary">Girar</button>
+          <a href="/games.html" class="btn btn-success" style="text-decoration:none;display:inline-block;">Menu de jogos</a>
+        </div>
+      </section>
+    </div>
+    <script src="./slot.js"></script>
+  </body>
+</html>
