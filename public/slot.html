@@ -30,7 +30,12 @@
           </div>
           <div class="slot-input">
             <label>Aposta por giro</label>
-            <input id="wagerInput" type="number" min="1" max="10" step="1" value="5" />
+            <div class="wager-control">
+              <button id="wagerMinus" type="button" class="wager-step" aria-label="Diminuir aposta">-</button>
+              <input id="wagerInput" type="number" min="1" max="10" step="1" value="5" />
+              <button id="wagerPlus" type="button" class="wager-step" aria-label="Aumentar aposta">+</button>
+            </div>
+            <p class="wager-hint">Limite por rodada: min 1 | max 10</p>
           </div>
         </div>
 

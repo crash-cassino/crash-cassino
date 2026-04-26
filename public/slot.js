@@ -1,6 +1,8 @@
 const statusText = document.getElementById("statusText");
 const creditsField = document.getElementById("creditsField");
 const wagerInput = document.getElementById("wagerInput");
+const wagerMinus = document.getElementById("wagerMinus");
+const wagerPlus = document.getElementById("wagerPlus");
 const spinButton = document.getElementById("spinButton");
 const reelEls = [
   document.getElementById("reel1"),
@@ -127,5 +129,15 @@ async function spin() {
 spinButton.addEventListener("click", spin);
 wagerInput.addEventListener("input", () => {
   wagerInput.value = String(normalizeWager(Number(wagerInput.value)));
+});
+
+wagerMinus.addEventListener("click", () => {
+  const next = normalizeWager(Number(wagerInput.value) - 1);
+  wagerInput.value = String(next);
+});
+
+wagerPlus.addEventListener("click", () => {
+  const next = normalizeWager(Number(wagerInput.value) + 1);
+  wagerInput.value = String(next);
 });
 loadMe();
