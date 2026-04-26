@@ -56,6 +56,13 @@ async function ensureDatabaseSchema() {
     );
   `);
 
+  // Backward-compatible migrations for older deployments.
+  await dbPool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;");
+  await dbPool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();");
+  await dbPool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;");
+  await dbPool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS twofa_enabled BOOLEAN NOT NULL DEFAULT FALSE;");
+  await dbPool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS credits NUMERIC(14, 2) NOT NULL DEFAULT 0;");
+
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS credit_transactions (
       id SERIAL PRIMARY KEY,
