@@ -3,7 +3,7 @@ const playerLabel = document.getElementById("playerLabel");
 const balanceField = document.getElementById("balanceField");
 const multiplierField = document.getElementById("multiplierField");
 const targetCrashLabel = document.getElementById("targetCrashLabel");
-const historyList = document.getElementById("historyList");
+const leaderboardList = document.getElementById("leaderboardList");
 const wagerInput = document.getElementById("wagerInput");
 const autoCashoutInput = document.getElementById("autoCashoutInput");
 const startRoundButton = document.getElementById("startRoundButton");
@@ -21,9 +21,15 @@ const state = {
   multiplier: 1,
   hasSettled: false,
   path: [],
-  history: [],
+  particles: [],
+  leaderboard: [],
   profileEmail: "",
-  profileRole: ""
+  profileRole: "",
+  roundNoise: {
+    seedA: Math.random() * Math.PI * 2,
+    seedB: Math.random() * Math.PI * 2,
+    amplitude: 0.03
+  }
 };
 
 const drawCfg = {
@@ -53,14 +59,23 @@ function updateBalanceLabel() {
   balanceField.textContent = state.balance.toFixed(2);
 }
 
-function renderHistory() {
-  historyList.innerHTML = "";
-  state.history.slice(0, 16).forEach((item) => {
-    const pill = document.createElement("span");
-    pill.className = `history-pill ${item.won ? "win" : "loss"}`;
-    pill.textContent = `${item.multiplier.toFixed(2)}x`;
-    historyList.appendChild(pill);
+function renderLeaderboard() {
+  leaderboardList.innerHTML = "";
+  state.leaderboard.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "leaderboard-item";
+    row.innerHTML = `<span>${item.name}</span><strong>${item.multiplier.toFixed(2)}x</strong>`;
+    leaderboardList.appendChild(row);
   });
+}
+
+function buildInitialLeaderboard() {
+  const names = ["Luna", "Vitor", "Maya", "Rafa", "Clara", "Nexo"];
+  state.leaderboard = names.map((name) => ({
+    name,
+    multiplier: Number((1.1 + Math.random() * 2.7).toFixed(2))
+  }));
+  renderLeaderboard();
 }
 
 function resizeCanvas() {
@@ -77,7 +92,11 @@ function resizeCanvas() {
 
 function getMultiplier(elapsedMs) {
   const seconds = elapsedMs / 1000;
-  return Number(Math.exp(0.14 * seconds).toFixed(2));
+  const base = Math.exp(0.14 * seconds);
+  const waveA = Math.sin(seconds * 4.2 + state.roundNoise.seedA) * state.roundNoise.amplitude;
+  const waveB = Math.cos(seconds * 2.5 + state.roundNoise.seedB) * (state.roundNoise.amplitude * 0.6);
+  const noisy = Math.max(1.0, base * (1 + waveA + waveB));
+  return Number(noisy.toFixed(2));
 }
 
 function toCanvasX(normalizedX) {
@@ -134,10 +153,103 @@ function drawChart() {
   chartCtx.shadowBlur = 0;
 
   const last = state.path[state.path.length - 1];
+  const lastX = toCanvasX(last.x);
+  const lastY = toCanvasY(last.y);
   chartCtx.fillStyle = state.inRound ? "#1ecf8d" : "#ff5a83";
   chartCtx.beginPath();
-  chartCtx.arc(toCanvasX(last.x), toCanvasY(last.y), 6, 0, Math.PI * 2);
+  chartCtx.arc(lastX, lastY, 6, 0, Math.PI * 2);
   chartCtx.fill();
+
+  if (state.inRound) {
+    drawRocket(lastX, lastY);
+  }
+
+  drawParticles();
+}
+
+function drawRocket(x, y) {
+  chartCtx.save();
+  chartCtx.translate(x, y);
+  chartCtx.fillStyle = "#f5f8ff";
+  chartCtx.beginPath();
+  chartCtx.moveTo(0, -10);
+  chartCtx.lineTo(7, 6);
+  chartCtx.lineTo(0, 3);
+  chartCtx.lineTo(-7, 6);
+  chartCtx.closePath();
+  chartCtx.fill();
+  chartCtx.fillStyle = "#1bddff";
+  chartCtx.beginPath();
+  chartCtx.arc(0, -1, 2.4, 0, Math.PI * 2);
+  chartCtx.fill();
+  chartCtx.fillStyle = "#ffb347";
+  chartCtx.beginPath();
+  chartCtx.moveTo(0, 6);
+  chartCtx.lineTo(3, 13);
+  chartCtx.lineTo(-3, 13);
+  chartCtx.closePath();
+  chartCtx.fill();
+  chartCtx.restore();
+}
+
+function createCrashParticles() {
+  if (state.path.length === 0) return;
+  const last = state.path[state.path.length - 1];
+  const x = toCanvasX(last.x);
+  const y = toCanvasY(last.y);
+  state.particles = Array.from({ length: 26 }).map(() => {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1.5 + Math.random() * 3.2;
+    return {
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 28 + Math.floor(Math.random() * 18),
+      ttl: 28 + Math.floor(Math.random() * 18)
+    };
+  });
+}
+
+function drawParticles() {
+  if (!state.particles.length) return;
+  state.particles.forEach((p) => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.04;
+    p.ttl -= 1;
+    const alpha = Math.max(0, p.ttl / p.life);
+    chartCtx.fillStyle = `rgba(255, 120, 70, ${alpha})`;
+    chartCtx.beginPath();
+    chartCtx.arc(p.x, p.y, 2.2, 0, Math.PI * 2);
+    chartCtx.fill();
+  });
+  state.particles = state.particles.filter((p) => p.ttl > 0);
+}
+
+function playSound(type) {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
+  const ctx = new AudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  gain.gain.value = 0.0001;
+  if (type === "launch") {
+    osc.frequency.setValueAtTime(180, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(420, ctx.currentTime + 0.18);
+  } else if (type === "cashout") {
+    osc.frequency.setValueAtTime(380, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(620, ctx.currentTime + 0.15);
+  } else {
+    osc.frequency.setValueAtTime(260, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(90, ctx.currentTime + 0.22);
+  }
+  gain.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.03);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.24);
+  osc.start();
+  osc.stop(ctx.currentTime + 0.26);
 }
 
 async function fetchMe() {
@@ -189,8 +301,17 @@ async function settle(cashoutAt) {
     updateBalanceLabel();
     const finalMultiplier = Number(roundRef.crashPoint || state.multiplier);
     multiplierField.textContent = `${finalMultiplier.toFixed(2)}x`;
-    state.history.unshift({ multiplier: finalMultiplier, won: Boolean(data.won) });
-    renderHistory();
+    if (data.won) {
+      playSound("cashout");
+    } else {
+      playSound("crash");
+      createCrashParticles();
+    }
+    state.leaderboard = state.leaderboard.map((item) => ({
+      ...item,
+      multiplier: Number((1.1 + Math.random() * 5.4).toFixed(2))
+    }));
+    renderLeaderboard();
     setStatus(data.won ? "Vitoria na rodada" : "Rodada perdida", data.won ? "#1ecf8d" : "#ff5a83");
   } catch (error) {
     setStatus(error.message, "#ff5a83");
@@ -255,11 +376,17 @@ async function startRound() {
     state.round = data;
     state.inRound = true;
     state.hasSettled = false;
+    state.roundNoise = {
+      seedA: Math.random() * Math.PI * 2,
+      seedB: Math.random() * Math.PI * 2,
+      amplitude: 0.02 + Math.random() * 0.05
+    };
     state.path = [{ x: 0, y: 1 }];
     state.multiplier = 1;
     targetCrashLabel.textContent = `${Number(data.crashPoint).toFixed(2)}x`;
     cashoutButton.disabled = false;
     setStatus("Rodada em andamento", "#1bddff");
+    playSound("launch");
     runRoundLoop(performance.now());
   } catch (error) {
     startRoundButton.disabled = false;
@@ -293,6 +420,7 @@ window.addEventListener("resize", () => {
 
 resizeCanvas();
 drawChart();
+buildInitialLeaderboard();
 fetchMe().then((ok) => {
   if (ok) {
     setStatus("Sessão ativa. Boa sorte!", "#1ecf8d");

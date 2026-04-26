@@ -130,7 +130,7 @@ h1 {
   border: 1px solid var(--line);
   border-radius: 16px;
   background: linear-gradient(180deg, rgba(14, 21, 49, 0.96), rgba(13, 20, 46, 0.98));
-  padding: 14px;
+  padding: 14px 14px 12px;
   position: relative;
   overflow: hidden;
 }
@@ -158,41 +158,6 @@ h1 {
 .chart-overlay strong {
   font-size: 30px;
   color: var(--accent-2);
-}
-
-.history {
-  margin-top: 12px;
-}
-
-.history span {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.history-list {
-  margin-top: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.history-pill {
-  padding: 5px 10px;
-  border-radius: 999px;
-  border: 1px solid #36458f;
-  background: #152049;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.history-pill.win {
-  color: #95ffd6;
-  border-color: rgba(30, 207, 141, 0.5);
-}
-
-.history-pill.loss {
-  color: #ff8eaa;
-  border-color: rgba(255, 90, 131, 0.5);
 }
 
 .control-panel {
@@ -252,6 +217,27 @@ input {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.leaderboard-item {
+  border: 1px solid #334387;
+  border-radius: 10px;
+  background: #121c42;
+  padding: 8px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.leaderboard-item strong {
+  color: var(--accent-2);
 }
 
 .btn {
