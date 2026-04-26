@@ -156,23 +156,28 @@ function drawChart() {
   chartCtx.shadowBlur = 0;
 
   const last = state.path[state.path.length - 1];
+  const prev = state.path.length >= 2 ? state.path[state.path.length - 2] : last;
   const lastX = toCanvasX(last.x);
   const lastY = toCanvasY(last.y);
+  const prevX = toCanvasX(prev.x);
+  const prevY = toCanvasY(prev.y);
+  const rocketAngle = Math.atan2(lastY - prevY, lastX - prevX) + Math.PI / 2;
   chartCtx.fillStyle = state.inRound ? "#1ecf8d" : "#ff5a83";
   chartCtx.beginPath();
   chartCtx.arc(lastX, lastY, 6, 0, Math.PI * 2);
   chartCtx.fill();
 
   if (state.inRound) {
-    drawRocket(lastX, lastY);
+    drawRocket(lastX, lastY, rocketAngle);
   }
 
   drawParticles();
 }
 
-function drawRocket(x, y) {
+function drawRocket(x, y, angleRadians) {
   chartCtx.save();
   chartCtx.translate(x, y);
+  chartCtx.rotate(angleRadians);
   chartCtx.fillStyle = "#f5f8ff";
   chartCtx.beginPath();
   chartCtx.moveTo(0, -10);
