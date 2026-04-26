@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Painel do Jogador</title>
+    <link rel="stylesheet" href="./portal.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <p class="kicker">Conta do jogador</p>
+        <h1 class="title">Minha conta</h1>
+      </header>
+
+      <section class="card">
+        <p id="statusText" class="status">Carregando conta...</p>
+        <div class="grid">
+          <div>
+            <label>Email</label>
+            <input id="emailField" type="text" readonly />
+          </div>
+          <div>
+            <label>Perfil</label>
+            <input id="roleField" type="text" readonly />
+          </div>
+          <div>
+            <label>Creditos</label>
+            <input id="creditsField" type="text" readonly />
+          </div>
+          <div>
+            <label>Conta ativa</label>
+            <input id="activeField" type="text" readonly />
+          </div>
+        </div>
+        <div class="actions">
+          <button id="logoutButton" class="btn btn-danger">Sair</button>
+        </div>
+      </section>
+    </div>
+    <script src="./user.js"></script>
+  </body>
+</html>

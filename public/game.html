@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crash Cassino - Jogo</title>
+    <link rel="stylesheet" href="./portal.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <p class="kicker">Jogo crash</p>
+        <h1 class="title">Sala do jogador</h1>
+      </header>
+
+      <section class="card">
+        <p id="statusText" class="status">Carregando sessão...</p>
+        <div class="grid">
+          <div>
+            <label>Saldo</label>
+            <input id="balanceField" type="text" readonly />
+          </div>
+          <div>
+            <label>Ultimo multiplicador</label>
+            <input id="multiplierField" type="text" readonly value="1.00x" />
+          </div>
+        </div>
+        <label>Aposta</label>
+        <input id="wagerInput" type="number" min="1" step="1" value="10" />
+        <label>Auto cashout (x)</label>
+        <input id="autoCashoutInput" type="number" min="1.01" step="0.01" value="2.00" />
+        <div class="actions">
+          <button id="startRoundButton" class="btn btn-primary">Iniciar rodada</button>
+          <button id="cashoutButton" class="btn btn-success" disabled>Cashout</button>
+          <a class="btn btn-primary" href="/user.html" style="text-decoration:none;display:inline-block">Painel do usuario</a>
+        </div>
+      </section>
+    </div>
+    <script src="./game.js"></script>
+  </body>
+</html>

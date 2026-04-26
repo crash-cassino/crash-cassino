@@ -3,74 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Crash Cassino - Demo</title>
-    <link rel="stylesheet" href="./style.css" />
+    <title>Login do Jogador</title>
+    <link rel="stylesheet" href="./portal.css" />
   </head>
   <body>
-    <div class="bg-orb orb-left"></div>
-    <div class="bg-orb orb-right"></div>
-    <div class="app">
-      <header class="topbar">
-        <div>
-          <p class="kicker">Crash Experience</p>
-          <h1>Crash Cassino <span>Neon Arena</span></h1>
-        </div>
-        <div class="topbar-actions">
-          <a class="pill-link" href="/auth.html">Login / Cadastro</a>
-          <a class="pill-link" href="/admin.html">Admin</a>
-        </div>
+    <div class="container">
+      <header class="header">
+        <p class="kicker">Area do jogador</p>
+        <h1 class="title">Login / Cadastro</h1>
       </header>
 
-      <section class="hud-grid">
-        <article class="hud-card">
-          <p>Saldo</p>
-          <strong>R$ <span id="balanceLabel">1000.00</span></strong>
-        </article>
-        <article class="hud-card">
-          <p>Modo da rodada</p>
-          <strong><span id="roundModeLabel">-</span></strong>
-        </article>
+      <section class="card">
+        <p id="statusText" class="status">Entre com seu email e senha.</p>
+        <label>Email</label>
+        <input id="emailInput" type="email" placeholder="voce@email.com" />
+        <label>Senha</label>
+        <input id="passwordInput" type="password" placeholder="******" />
+        <div class="actions">
+          <button id="registerButton" class="btn btn-primary">Criar conta</button>
+          <button id="loginButton" class="btn btn-success">Entrar</button>
+        </div>
       </section>
-
-      <main class="layout">
-        <section class="game-panel">
-          <canvas id="crashCanvas" width="960" height="480"></canvas>
-          <div class="multiplier-wrap">
-            <div id="roundStatus" class="round-status">Aguardando aposta</div>
-            <div id="multiplier" class="multiplier">1.00x</div>
-          </div>
-        </section>
-
-        <aside class="side-panel">
-          <div class="card">
-            <h2>Controle de aposta</h2>
-            <label>Valor da aposta</label>
-            <input id="wagerInput" type="number" min="1" step="1" value="10" />
-
-            <label>Auto cashout (x)</label>
-            <input id="autoCashoutInput" type="number" min="1.01" step="0.01" value="2.00" />
-
-            <div class="quick-actions">
-              <button class="chip-btn" data-action="half">1/2</button>
-              <button class="chip-btn" data-action="double">2x</button>
-              <button class="chip-btn" data-action="min">Min</button>
-              <button class="chip-btn" data-action="max">Max</button>
-            </div>
-
-            <button id="betButton" class="btn btn-primary">Apostar</button>
-            <button id="cashoutButton" class="btn btn-success" disabled>Cashout</button>
-          </div>
-
-          <div class="card helper">
-            <h2>Como jogar</h2>
-            <p>1. Defina aposta e auto cashout.</p>
-            <p>2. Clique em apostar para iniciar uma rodada.</p>
-            <p>3. Faça cashout antes do crash para vencer.</p>
-          </div>
-        </aside>
-      </main>
     </div>
-
-    <script src="./app.js"></script>
+    <script src="./login.js"></script>
   </body>
 </html>

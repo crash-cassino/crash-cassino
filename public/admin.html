@@ -3,44 +3,100 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Crash Cassino - Admin</title>
-    <link rel="stylesheet" href="./style.css" />
+    <title>Painel Admin</title>
+    <link rel="stylesheet" href="./portal.css" />
   </head>
   <body>
-    <div class="bg-orb orb-left"></div>
-    <div class="bg-orb orb-right"></div>
-    <div class="app app-narrow">
-      <header class="topbar">
-        <div>
-          <p class="kicker">Painel administrativo</p>
-          <h1>Admin <span>Crash Cassino</span></h1>
-        </div>
-        <div class="topbar-actions">
-          <a class="pill-link" href="/">Voltar ao jogo</a>
-          <a class="pill-link" href="/auth.html">Login</a>
-        </div>
+    <div class="container">
+      <header class="header">
+        <p class="kicker">Area administrativa</p>
+        <h1 class="title">Gerenciamento de usuarios</h1>
       </header>
 
-      <main class="single-column">
-        <section class="card">
-          <h2>Credito de jogadores</h2>
-          <p id="adminStatusText" class="small-text">Faça login como admin em /auth.html</p>
+      <section class="card">
+        <p id="adminStatusText" class="status">Carregando painel...</p>
+        <div class="grid">
+          <div>
+            <label>Total de usuarios</label>
+            <input id="totalUsersField" type="text" readonly />
+          </div>
+          <div>
+            <label>Usuarios ativos</label>
+            <input id="activeUsersField" type="text" readonly />
+          </div>
+          <div>
+            <label>Total de creditos</label>
+            <input id="totalCreditsField" type="text" readonly />
+          </div>
+        </div>
+        <div class="actions">
+          <button id="logoutButton" class="btn btn-danger">Sair</button>
+        </div>
+      </section>
 
-          <label>Jogador</label>
-          <select id="adminUserSelect"></select>
+      <section class="card" style="margin-top: 14px">
+        <h2>Criar usuario</h2>
+        <div class="grid">
+          <div>
+            <label>Email</label>
+            <input id="newEmailInput" type="email" />
+          </div>
+          <div>
+            <label>Senha</label>
+            <input id="newPasswordInput" type="password" />
+          </div>
+          <div>
+            <label>Perfil</label>
+            <select id="newRoleSelect">
+              <option value="player">player</option>
+              <option value="admin">admin</option>
+            </select>
+          </div>
+          <div>
+            <label>Creditos iniciais</label>
+            <input id="newCreditsInput" type="number" min="0" step="1" value="0" />
+          </div>
+        </div>
+        <button id="createUserButton" class="btn btn-primary">Criar usuario</button>
+      </section>
 
-          <label>Quantidade de creditos</label>
-          <input id="adminCreditAmountInput" type="number" min="1" step="1" value="100" />
+      <section class="card" style="margin-top: 14px">
+        <h2>Adicionar creditos</h2>
+        <label>Selecionar jogador</label>
+        <select id="creditUserSelect"></select>
+        <div class="grid">
+          <div>
+            <label>Quantidade</label>
+            <input id="creditAmountInput" type="number" min="1" step="1" value="100" />
+          </div>
+          <div>
+            <label>Motivo</label>
+            <input id="creditReasonInput" type="text" value="bonus_inicial" />
+          </div>
+        </div>
+        <button id="addCreditsButton" class="btn btn-success">Adicionar creditos</button>
+      </section>
 
-          <label>Motivo</label>
-          <input id="adminCreditReasonInput" type="text" value="bonus_inicial" />
-
-          <button id="refreshUsersButton" class="btn btn-primary">Atualizar jogadores</button>
-          <button id="addCreditsButton" class="btn btn-success">Adicionar creditos</button>
-        </section>
-      </main>
+      <section class="card" style="margin-top: 14px">
+        <h2>Lista de usuarios</h2>
+        <button id="refreshUsersButton" class="btn btn-primary">Atualizar lista</button>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Email</th>
+                <th>Perfil</th>
+                <th>Status</th>
+                <th>Creditos</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody"></tbody>
+          </table>
+        </div>
+      </section>
     </div>
-
-    <script src="./admin.js"></script>
+    <script src="./admin-dashboard.js"></script>
   </body>
 </html>

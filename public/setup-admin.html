@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Setup Admin Inicial</title>
+    <link rel="stylesheet" href="./portal.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <p class="kicker">Setup inicial</p>
+        <h1 class="title">Criar admin inicial</h1>
+      </header>
+      <section class="card">
+        <p id="statusText" class="status">Use apenas na configuração inicial.</p>
+        <label>Chave de setup (ADMIN_SETUP_KEY)</label>
+        <input id="setupKeyInput" type="password" />
+        <label>Email admin</label>
+        <input id="emailInput" type="email" />
+        <label>Senha</label>
+        <input id="passwordInput" type="password" />
+        <button id="createAdminButton" class="btn btn-primary">Criar admin inicial</button>
+      </section>
+    </div>
+    <script src="./setup-admin.js"></script>
+  </body>
+</html>

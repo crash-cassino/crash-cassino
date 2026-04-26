@@ -1,5 +1,4 @@
 const express = require("express");
-const crypto = require("crypto");
 const dotenv = require("dotenv");
 const path = require("path");
 const bcrypt = require("bcryptjs");
@@ -13,14 +12,13 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = Number(process.env.PORT || 3000);
+const AUTH_SECRET = String(process.env.AUTH_SECRET || "change-me");
+const DATABASE_URL = process.env.DATABASE_URL;
+const ADMIN_SETUP_KEY = String(process.env.ADMIN_SETUP_KEY || "");
 const TARGET_PROFIT_MARGIN = Number(process.env.TARGET_PROFIT_MARGIN || 0.12);
 const INSTANT_CRASH_CHANCE = Number(process.env.INSTANT_CRASH_CHANCE || 0.3);
 const BASE_HOUSE_EDGE = Number(process.env.BASE_HOUSE_EDGE || 0.02);
 const ROUND_DURATION_MS = Number(process.env.ROUND_DURATION_MS || 9000);
-const STREAMER_MODE = String(process.env.STREAMER_MODE || "false").toLowerCase() === "true";
-const VISUAL_INTENSITY = Number(process.env.VISUAL_INTENSITY || 1);
-const AUTH_SECRET = String(process.env.AUTH_SECRET || "change-me");
-const DATABASE_URL = process.env.DATABASE_URL;
 
 const shouldUseSsl = Boolean(DATABASE_URL && !DATABASE_URL.includes("localhost"));
 const dbPool = DATABASE_URL
@@ -30,18 +28,16 @@ const dbPool = DATABASE_URL
     })
   : null;
 
-const state = {
+const gameState = {
   totalWagered: 0,
   totalPaidOut: 0,
   rounds: 0,
-  instantCrashes: 0,
-  history: []
+  instantCrashes: 0
 };
 
 async function ensureDatabaseSchema() {
   if (!dbPool) {
-    console.warn("DATABASE_URL não configurada. Endpoints de auth/admin ficarão indisponíveis.");
-    return;
+    throw new Error("DATABASE_URL não configurada");
   }
 
   await dbPool.query(`
@@ -50,10 +46,13 @@ async function ensureDatabaseSchema() {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'player',
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
       email_verified BOOLEAN NOT NULL DEFAULT FALSE,
       twofa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
       credits NUMERIC(14, 2) NOT NULL DEFAULT 0,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT users_role_check CHECK (role IN ('player', 'admin'))
     );
   `);
 
@@ -69,77 +68,9 @@ async function ensureDatabaseSchema() {
   `);
 }
 
-function randomFloat() {
-  const buffer = crypto.randomBytes(4);
-  return buffer.readUInt32BE(0) / 0xffffffff;
-}
-
-function calculateCurrentProfit() {
-  return state.totalWagered - state.totalPaidOut;
-}
-
-function calculateCurrentMargin() {
-  if (state.totalWagered === 0) {
-    return 0;
-  }
-  return calculateCurrentProfit() / state.totalWagered;
-}
-
-function generateBaseCrashPoint() {
-  const r = randomFloat();
-  const adjusted = Math.max(1e-9, 1 - r);
-  const multiplier = (1 - BASE_HOUSE_EDGE) / adjusted;
-  return Number(Math.max(1.0, multiplier).toFixed(2));
-}
-
-function getRoundGrowthRate() {
-  return STREAMER_MODE ? 0.18 : 0.14;
-}
-
-function getMaxCrashPointForDuration() {
-  const seconds = Math.max(0.1, ROUND_DURATION_MS / 1000);
-  const maxByDuration = Math.exp(getRoundGrowthRate() * seconds);
-  return Number(Math.max(1.01, maxByDuration).toFixed(2));
-}
-
-function shouldForceInstantCrash(currentMargin) {
-  if (currentMargin >= TARGET_PROFIT_MARGIN) {
-    return false;
-  }
-  return randomFloat() < INSTANT_CRASH_CHANCE;
-}
-
-function createRound() {
-  const currentMargin = calculateCurrentMargin();
-  const forceInstant = shouldForceInstantCrash(currentMargin);
-  const rawCrashPoint = forceInstant ? 1.0 : generateBaseCrashPoint();
-  const maxCrashPoint = getMaxCrashPointForDuration();
-  const crashPoint = Number(Math.min(rawCrashPoint, maxCrashPoint).toFixed(2));
-
-  state.rounds += 1;
-  if (forceInstant) {
-    state.instantCrashes += 1;
-  }
-
-  const round = {
-    id: state.rounds,
-    crashPoint,
-    mode: forceInstant ? "instant_crash" : "normal",
-    createdAt: new Date().toISOString(),
-    durationMs: ROUND_DURATION_MS
-  };
-
-  state.history.unshift(round);
-  if (state.history.length > 30) {
-    state.history.pop();
-  }
-
-  return round;
-}
-
 function requireDatabase(req, res, next) {
   if (!dbPool) {
-    return res.status(503).json({ error: "DATABASE_URL não configurada no ambiente" });
+    return res.status(503).json({ error: "Banco de dados indisponível" });
   }
   return next();
 }
@@ -164,8 +95,7 @@ function requireAuth(req, res, next) {
   }
 
   try {
-    const payload = jwt.verify(token, AUTH_SECRET);
-    req.user = payload;
+    req.user = jwt.verify(token, AUTH_SECRET);
     return next();
   } catch (error) {
     return res.status(401).json({ error: "Token inválido ou expirado" });
@@ -174,99 +104,193 @@ function requireAuth(req, res, next) {
 
 function requireAdmin(req, res, next) {
   if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({ error: "Apenas admin pode acessar esta rota" });
+    return res.status(403).json({ error: "Acesso exclusivo de administrador" });
   }
   return next();
 }
 
+function requirePlayer(req, res, next) {
+  if (!req.user || req.user.role !== "player") {
+    return res.status(403).json({ error: "Acesso exclusivo de jogador" });
+  }
+  return next();
+}
+
+function randomFloat() {
+  return Math.random();
+}
+
+function calculateCurrentProfit() {
+  return gameState.totalWagered - gameState.totalPaidOut;
+}
+
+function calculateCurrentMargin() {
+  if (gameState.totalWagered === 0) {
+    return 0;
+  }
+  return calculateCurrentProfit() / gameState.totalWagered;
+}
+
+function generateBaseCrashPoint() {
+  const r = randomFloat();
+  const adjusted = Math.max(1e-9, 1 - r);
+  const multiplier = (1 - BASE_HOUSE_EDGE) / adjusted;
+  return Number(Math.max(1.0, multiplier).toFixed(2));
+}
+
+function shouldForceInstantCrash(currentMargin) {
+  if (currentMargin >= TARGET_PROFIT_MARGIN) {
+    return false;
+  }
+  return randomFloat() < INSTANT_CRASH_CHANCE;
+}
+
+function createRound() {
+  const currentMargin = calculateCurrentMargin();
+  const forceInstant = shouldForceInstantCrash(currentMargin);
+  const rawCrashPoint = forceInstant ? 1.0 : generateBaseCrashPoint();
+  const maxCrashPoint = Number(Math.exp(0.14 * Math.max(0.1, ROUND_DURATION_MS / 1000)).toFixed(2));
+  const crashPoint = Number(Math.min(rawCrashPoint, Math.max(1.01, maxCrashPoint)).toFixed(2));
+
+  gameState.rounds += 1;
+  if (forceInstant) {
+    gameState.instantCrashes += 1;
+  }
+
+  return {
+    id: gameState.rounds,
+    crashPoint,
+    mode: forceInstant ? "instant_crash" : "normal",
+    durationMs: ROUND_DURATION_MS
+  };
+}
+
+async function mapUserFromId(userId) {
+  const result = await dbPool.query(
+    `SELECT id, email, role, is_active, email_verified, twofa_enabled, credits, created_at
+     FROM users
+     WHERE id = $1`,
+    [userId]
+  );
+  return result.rows[0] || null;
+}
+
+app.get("/", (req, res) => {
+  res.redirect("/login.html");
+});
+
+app.get("/health", (req, res) => {
+  res.json({ ok: true, service: "crash-backend", database: dbPool ? "configured" : "not_configured" });
+});
+
 app.get("/api", (req, res) => {
   res.json({
-    message: "Crash backend online",
+    message: "Auth and user management API online",
     docs: {
-      health: "GET /health",
-      stats: "GET /stats",
-      startRound: "POST /round/start",
-      settleBet: "POST /bet/settle",
+      setupAdmin: "POST /setup/admin",
       register: "POST /auth/register",
-      login: "POST /auth/login",
-      me: "GET /auth/me"
+      userLogin: "POST /auth/login",
+      adminLogin: "POST /auth/admin/login",
+      me: "GET /auth/me",
+      adminUsers: "GET /admin/users",
+      adminCreateUser: "POST /admin/users",
+      adminSetStatus: "PATCH /admin/users/:id/status",
+      adminAddCredits: "POST /admin/credits/add",
+      startRound: "POST /round/start",
+      settleBet: "POST /bet/settle"
     }
   });
 });
 
-app.get("/health", (req, res) => {
-  res.json({ ok: true, service: "crash-backend", database: Boolean(dbPool) ? "configured" : "not_configured" });
-});
+app.post("/setup/admin", requireDatabase, async (req, res) => {
+  const setupKey = String(req.body.setupKey || "");
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const password = String(req.body.password || "");
 
-app.post("/auth/register", requireDatabase, async (req, res) => {
-  const { email, password } = req.body;
-  const normalizedEmail = String(email || "").trim().toLowerCase();
-  const rawPassword = String(password || "");
-
-  if (!normalizedEmail || !normalizedEmail.includes("@")) {
+  if (!ADMIN_SETUP_KEY) {
+    return res.status(400).json({ error: "ADMIN_SETUP_KEY não configurada no ambiente" });
+  }
+  if (setupKey !== ADMIN_SETUP_KEY) {
+    return res.status(403).json({ error: "Chave de setup inválida" });
+  }
+  if (!email || !email.includes("@")) {
     return res.status(400).json({ error: "Email inválido" });
   }
-  if (rawPassword.length < 6) {
+  if (password.length < 6) {
     return res.status(400).json({ error: "Senha deve ter pelo menos 6 caracteres" });
   }
 
-  const client = await dbPool.connect();
   try {
-    await client.query("BEGIN");
-    const existing = await client.query("SELECT id FROM users WHERE email = $1", [normalizedEmail]);
-    if (existing.rows.length > 0) {
-      await client.query("ROLLBACK");
-      return res.status(409).json({ error: "Email já cadastrado" });
+    const adminCount = await dbPool.query("SELECT COUNT(*)::int AS count FROM users WHERE role = 'admin'");
+    if (adminCount.rows[0].count > 0) {
+      return res.status(409).json({ error: "Já existe admin cadastrado" });
     }
 
-    const adminCount = await client.query("SELECT COUNT(*)::int AS count FROM users WHERE role = 'admin'");
-    const role = adminCount.rows[0].count === 0 ? "admin" : "player";
-    const passwordHash = await bcrypt.hash(rawPassword, 10);
-
-    const created = await client.query(
-      `
-      INSERT INTO users (email, password_hash, role, email_verified, credits)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, email, role, email_verified, twofa_enabled, credits, created_at
-      `,
-      [normalizedEmail, passwordHash, role, false, 0]
+    const hash = await bcrypt.hash(password, 10);
+    const created = await dbPool.query(
+      `INSERT INTO users (email, password_hash, role, email_verified, credits)
+       VALUES ($1, $2, 'admin', TRUE, 0)
+       RETURNING id, email, role, is_active, credits, created_at`,
+      [email, hash]
     );
-
-    await client.query("COMMIT");
-    const user = created.rows[0];
-    return res.status(201).json({
-      message: "Conta criada com sucesso",
-      user
-    });
+    return res.status(201).json({ message: "Admin inicial criado", user: created.rows[0] });
   } catch (error) {
-    await client.query("ROLLBACK");
+    return res.status(500).json({ error: "Falha ao criar admin inicial" });
+  }
+});
+
+app.post("/auth/register", requireDatabase, async (req, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const password = String(req.body.password || "");
+
+  if (!email || !email.includes("@")) {
+    return res.status(400).json({ error: "Email inválido" });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: "Senha deve ter pelo menos 6 caracteres" });
+  }
+
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    const created = await dbPool.query(
+      `INSERT INTO users (email, password_hash, role, email_verified, credits)
+       VALUES ($1, $2, 'player', FALSE, 0)
+       RETURNING id, email, role, is_active, email_verified, twofa_enabled, credits, created_at`,
+      [email, passwordHash]
+    );
+    return res.status(201).json({ message: "Conta criada com sucesso", user: created.rows[0] });
+  } catch (error) {
+    if (String(error.message).includes("duplicate key")) {
+      return res.status(409).json({ error: "Email já cadastrado" });
+    }
     return res.status(500).json({ error: "Falha ao criar conta" });
-  } finally {
-    client.release();
   }
 });
 
 app.post("/auth/login", requireDatabase, async (req, res) => {
-  const { email, password } = req.body;
-  const normalizedEmail = String(email || "").trim().toLowerCase();
-  const rawPassword = String(password || "");
-
-  if (!normalizedEmail || !rawPassword) {
-    return res.status(400).json({ error: "Email e senha são obrigatórios" });
-  }
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const password = String(req.body.password || "");
 
   try {
     const found = await dbPool.query(
-      "SELECT id, email, password_hash, role, email_verified, twofa_enabled, credits FROM users WHERE email = $1",
-      [normalizedEmail]
+      `SELECT id, email, role, is_active, password_hash, email_verified, twofa_enabled, credits
+       FROM users WHERE email = $1`,
+      [email]
     );
     if (found.rows.length === 0) {
       return res.status(401).json({ error: "Credenciais inválidas" });
     }
 
     const user = found.rows[0];
-    const isValid = await bcrypt.compare(rawPassword, user.password_hash);
-    if (!isValid) {
+    if (user.role !== "player") {
+      return res.status(403).json({ error: "Use o login administrativo para esta conta" });
+    }
+    if (!user.is_active) {
+      return res.status(403).json({ error: "Conta desativada. Fale com o administrador." });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password_hash);
+    if (!validPassword) {
       return res.status(401).json({ error: "Credenciais inválidas" });
     }
 
@@ -277,31 +301,71 @@ app.post("/auth/login", requireDatabase, async (req, res) => {
         id: user.id,
         email: user.email,
         role: user.role,
+        credits: Number(user.credits),
         emailVerified: user.email_verified,
-        twofaEnabled: user.twofa_enabled,
-        credits: Number(user.credits)
+        twofaEnabled: user.twofa_enabled
       }
     });
   } catch (error) {
-    return res.status(500).json({ error: "Falha no login" });
+    return res.status(500).json({ error: "Falha no login de usuário" });
+  }
+});
+
+app.post("/auth/admin/login", requireDatabase, async (req, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const password = String(req.body.password || "");
+
+  try {
+    const found = await dbPool.query(
+      `SELECT id, email, role, is_active, password_hash, email_verified, twofa_enabled, credits
+       FROM users WHERE email = $1`,
+      [email]
+    );
+    if (found.rows.length === 0) {
+      return res.status(401).json({ error: "Credenciais inválidas" });
+    }
+
+    const user = found.rows[0];
+    if (user.role !== "admin") {
+      return res.status(403).json({ error: "Conta sem permissão administrativa" });
+    }
+    if (!user.is_active) {
+      return res.status(403).json({ error: "Conta admin desativada" });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password_hash);
+    if (!validPassword) {
+      return res.status(401).json({ error: "Credenciais inválidas" });
+    }
+
+    const token = signToken(user);
+    return res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        credits: Number(user.credits),
+        emailVerified: user.email_verified,
+        twofaEnabled: user.twofa_enabled
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ error: "Falha no login administrativo" });
   }
 });
 
 app.get("/auth/me", requireDatabase, requireAuth, async (req, res) => {
   try {
-    const found = await dbPool.query(
-      "SELECT id, email, role, email_verified, twofa_enabled, credits, created_at FROM users WHERE id = $1",
-      [req.user.userId]
-    );
-    if (found.rows.length === 0) {
+    const user = await mapUserFromId(req.user.userId);
+    if (!user) {
       return res.status(404).json({ error: "Usuário não encontrado" });
     }
-
-    const user = found.rows[0];
     return res.json({
       id: user.id,
       email: user.email,
       role: user.role,
+      isActive: user.is_active,
       emailVerified: user.email_verified,
       twofaEnabled: user.twofa_enabled,
       credits: Number(user.credits),
@@ -312,23 +376,101 @@ app.get("/auth/me", requireDatabase, requireAuth, async (req, res) => {
   }
 });
 
+app.get("/admin/overview", requireDatabase, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const [usersCount, activeUsersCount, totalCredits] = await Promise.all([
+      dbPool.query("SELECT COUNT(*)::int AS count FROM users"),
+      dbPool.query("SELECT COUNT(*)::int AS count FROM users WHERE is_active = TRUE"),
+      dbPool.query("SELECT COALESCE(SUM(credits), 0)::numeric AS total FROM users")
+    ]);
+    return res.json({
+      totalUsers: usersCount.rows[0].count,
+      activeUsers: activeUsersCount.rows[0].count,
+      totalCredits: Number(totalCredits.rows[0].total || 0)
+    });
+  } catch (error) {
+    return res.status(500).json({ error: "Falha ao carregar overview" });
+  }
+});
+
 app.get("/admin/users", requireDatabase, requireAuth, requireAdmin, async (req, res) => {
   try {
     const result = await dbPool.query(
-      "SELECT id, email, role, email_verified, twofa_enabled, credits, created_at FROM users ORDER BY created_at DESC LIMIT 200"
+      `SELECT id, email, role, is_active, email_verified, twofa_enabled, credits, created_at
+       FROM users
+       ORDER BY created_at DESC`
     );
-    const users = result.rows.map((item) => ({
-      id: item.id,
-      email: item.email,
-      role: item.role,
-      emailVerified: item.email_verified,
-      twofaEnabled: item.twofa_enabled,
-      credits: Number(item.credits),
-      createdAt: item.created_at
-    }));
-    return res.json({ users });
+    return res.json({
+      users: result.rows.map((u) => ({
+        id: u.id,
+        email: u.email,
+        role: u.role,
+        isActive: u.is_active,
+        emailVerified: u.email_verified,
+        twofaEnabled: u.twofa_enabled,
+        credits: Number(u.credits),
+        createdAt: u.created_at
+      }))
+    });
   } catch (error) {
     return res.status(500).json({ error: "Falha ao listar usuários" });
+  }
+});
+
+app.post("/admin/users", requireDatabase, requireAuth, requireAdmin, async (req, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const password = String(req.body.password || "");
+  const role = req.body.role === "admin" ? "admin" : "player";
+  const initialCredits = Number(req.body.initialCredits || 0);
+
+  if (!email || !email.includes("@")) {
+    return res.status(400).json({ error: "Email inválido" });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: "Senha deve ter pelo menos 6 caracteres" });
+  }
+  if (!Number.isFinite(initialCredits) || initialCredits < 0) {
+    return res.status(400).json({ error: "Créditos iniciais inválidos" });
+  }
+
+  try {
+    const hash = await bcrypt.hash(password, 10);
+    const created = await dbPool.query(
+      `INSERT INTO users (email, password_hash, role, email_verified, credits)
+       VALUES ($1, $2, $3, FALSE, $4)
+       RETURNING id, email, role, is_active, email_verified, twofa_enabled, credits, created_at`,
+      [email, hash, role, initialCredits]
+    );
+    return res.status(201).json({ message: "Usuário criado com sucesso", user: created.rows[0] });
+  } catch (error) {
+    if (String(error.message).includes("duplicate key")) {
+      return res.status(409).json({ error: "Email já cadastrado" });
+    }
+    return res.status(500).json({ error: "Falha ao criar usuário" });
+  }
+});
+
+app.patch("/admin/users/:id/status", requireDatabase, requireAuth, requireAdmin, async (req, res) => {
+  const userId = Number(req.params.id);
+  const isActive = Boolean(req.body.isActive);
+
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ error: "ID de usuário inválido" });
+  }
+
+  try {
+    const updated = await dbPool.query(
+      `UPDATE users SET is_active = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING id, email, role, is_active, credits`,
+      [isActive, userId]
+    );
+    if (updated.rows.length === 0) {
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
+    return res.json({ message: "Status atualizado", user: updated.rows[0] });
+  } catch (error) {
+    return res.status(500).json({ error: "Falha ao atualizar status" });
   }
 });
 
@@ -348,7 +490,7 @@ app.post("/admin/credits/add", requireDatabase, requireAuth, requireAdmin, async
   try {
     await client.query("BEGIN");
     const updated = await client.query(
-      "UPDATE users SET credits = credits + $1 WHERE id = $2 RETURNING id, email, credits",
+      "UPDATE users SET credits = credits + $1, updated_at = NOW() WHERE id = $2 RETURNING id, email, credits",
       [amount, userId]
     );
     if (updated.rows.length === 0) {
@@ -361,16 +503,7 @@ app.post("/admin/credits/add", requireDatabase, requireAuth, requireAdmin, async
       [userId, amount, reason, req.user.userId]
     );
     await client.query("COMMIT");
-
-    const user = updated.rows[0];
-    return res.json({
-      message: "Créditos adicionados",
-      user: {
-        id: user.id,
-        email: user.email,
-        credits: Number(user.credits)
-      }
-    });
+    return res.json({ message: "Créditos adicionados", user: updated.rows[0] });
   } catch (error) {
     await client.query("ROLLBACK");
     return res.status(500).json({ error: "Falha ao adicionar créditos" });
@@ -379,67 +512,59 @@ app.post("/admin/credits/add", requireDatabase, requireAuth, requireAdmin, async
   }
 });
 
-app.post("/round/start", requireDatabase, requireAuth, async (req, res) => {
+app.post("/round/start", requireDatabase, requireAuth, requirePlayer, async (req, res) => {
   try {
-    const user = await dbPool.query("SELECT credits FROM users WHERE id = $1", [req.user.userId]);
-    if (user.rows.length === 0) {
-      return res.status(404).json({ error: "Usuário não encontrado" });
+    const user = await mapUserFromId(req.user.userId);
+    if (!user || !user.is_active) {
+      return res.status(403).json({ error: "Conta de jogador inativa" });
     }
-    const credits = Number(user.rows[0].credits || 0);
-    if (credits <= 0) {
-      return res.status(400).json({ error: "Saldo insuficiente para iniciar aposta" });
+    if (Number(user.credits) <= 0) {
+      return res.status(400).json({ error: "Saldo insuficiente" });
     }
+    return res.json(createRound());
   } catch (error) {
-    return res.status(500).json({ error: "Falha ao validar saldo" });
+    return res.status(500).json({ error: "Falha ao iniciar rodada" });
   }
-
-  const round = createRound();
-  res.json(round);
 });
 
-app.post("/bet/settle", requireDatabase, requireAuth, async (req, res) => {
-  const { wager, autoCashoutAt, crashPoint } = req.body;
+app.post("/bet/settle", requireDatabase, requireAuth, requirePlayer, async (req, res) => {
+  const wager = Number(req.body.wager);
+  const autoCashoutAt = Number(req.body.autoCashoutAt);
+  const crashPoint = Number(req.body.crashPoint);
 
-  const numericWager = Number(wager);
-  const numericAutoCashoutAt = Number(autoCashoutAt);
-  const numericCrashPoint = Number(crashPoint);
-
-  if (!Number.isFinite(numericWager) || numericWager <= 0) {
-    return res.status(400).json({ error: "wager deve ser um número maior que 0" });
+  if (!Number.isFinite(wager) || wager <= 0) {
+    return res.status(400).json({ error: "Aposta inválida" });
   }
-
-  if (!Number.isFinite(numericAutoCashoutAt) || numericAutoCashoutAt < 1) {
-    return res.status(400).json({ error: "autoCashoutAt deve ser >= 1.0" });
+  if (!Number.isFinite(autoCashoutAt) || autoCashoutAt < 1) {
+    return res.status(400).json({ error: "Auto cashout inválido" });
   }
-
-  if (!Number.isFinite(numericCrashPoint) || numericCrashPoint < 1) {
-    return res.status(400).json({ error: "crashPoint inválido" });
+  if (!Number.isFinite(crashPoint) || crashPoint < 1) {
+    return res.status(400).json({ error: "Crash point inválido" });
   }
 
   const client = await dbPool.connect();
   try {
     await client.query("BEGIN");
-
-    const found = await client.query("SELECT credits FROM users WHERE id = $1 FOR UPDATE", [req.user.userId]);
-    if (found.rows.length === 0) {
+    const found = await client.query("SELECT credits, is_active FROM users WHERE id = $1 FOR UPDATE", [req.user.userId]);
+    if (found.rows.length === 0 || !found.rows[0].is_active) {
       await client.query("ROLLBACK");
-      return res.status(404).json({ error: "Usuário não encontrado" });
+      return res.status(403).json({ error: "Conta inativa" });
     }
 
-    const currentCredits = Number(found.rows[0].credits || 0);
-    if (currentCredits < numericWager) {
+    const credits = Number(found.rows[0].credits || 0);
+    if (credits < wager) {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: "Saldo insuficiente" });
     }
 
-    const won = numericAutoCashoutAt < numericCrashPoint;
-    const payout = won ? Number((numericWager * numericAutoCashoutAt).toFixed(2)) : 0;
-    const newCredits = Number((currentCredits - numericWager + payout).toFixed(2));
+    const won = autoCashoutAt < crashPoint;
+    const payout = won ? Number((wager * autoCashoutAt).toFixed(2)) : 0;
+    const newBalance = Number((credits - wager + payout).toFixed(2));
 
-    await client.query("UPDATE users SET credits = $1 WHERE id = $2", [newCredits, req.user.userId]);
+    await client.query("UPDATE users SET credits = $1, updated_at = NOW() WHERE id = $2", [newBalance, req.user.userId]);
     await client.query(
       "INSERT INTO credit_transactions (user_id, amount, reason, admin_user_id) VALUES ($1, $2, $3, $4)",
-      [req.user.userId, -numericWager, "bet_wager", null]
+      [req.user.userId, -wager, "bet_wager", null]
     );
     if (payout > 0) {
       await client.query(
@@ -447,18 +572,15 @@ app.post("/bet/settle", requireDatabase, requireAuth, async (req, res) => {
         [req.user.userId, payout, "bet_payout", null]
       );
     }
-
-    state.totalWagered += numericWager;
-    state.totalPaidOut += payout;
     await client.query("COMMIT");
+
+    gameState.totalWagered += wager;
+    gameState.totalPaidOut += payout;
 
     return res.json({
       won,
-      wager: numericWager,
-      autoCashoutAt: numericAutoCashoutAt,
-      crashPoint: numericCrashPoint,
       payout,
-      balance: newCredits,
+      balance: newBalance,
       houseProfit: Number(calculateCurrentProfit().toFixed(2)),
       profitMargin: Number(calculateCurrentMargin().toFixed(4))
     });
@@ -470,30 +592,14 @@ app.post("/bet/settle", requireDatabase, requireAuth, async (req, res) => {
   }
 });
 
-app.get("/stats", (req, res) => {
-  res.json({
-    rounds: state.rounds,
-    instantCrashes: state.instantCrashes,
-    totalWagered: Number(state.totalWagered.toFixed(2)),
-    totalPaidOut: Number(state.totalPaidOut.toFixed(2)),
-    houseProfit: Number(calculateCurrentProfit().toFixed(2)),
-    profitMargin: Number(calculateCurrentMargin().toFixed(4)),
-    config: {
-      targetProfitMargin: TARGET_PROFIT_MARGIN,
-      instantCrashChance: INSTANT_CRASH_CHANCE,
-      baseHouseEdge: BASE_HOUSE_EDGE,
-      roundDurationMs: ROUND_DURATION_MS,
-      streamerMode: STREAMER_MODE,
-      visualIntensity: VISUAL_INTENSITY
-    },
-    recentRounds: state.history
-  });
-});
-
 ensureDatabaseSchema()
-  .then(() => {
+  .then(async () => {
+    const adminCount = await dbPool.query("SELECT COUNT(*)::int AS count FROM users WHERE role = 'admin'");
+    if (adminCount.rows[0].count === 0) {
+      console.warn("Nenhum admin cadastrado. Crie um admin via SQL ou endpoint /admin/users com token admin bootstrap.");
+    }
     app.listen(PORT, () => {
-      console.log(`Crash backend rodando em http://localhost:${PORT}`);
+      console.log(`Servidor rodando em http://localhost:${PORT}`);
     });
   })
   .catch((error) => {

@@ -1,0 +1,144 @@
+:root {
+  --bg: #0a1024;
+  --card: #141d3f;
+  --line: #2d3b78;
+  --text: #f3f6ff;
+  --muted: #9ca9d8;
+  --primary: #7e63ff;
+  --success: #1fcd8b;
+  --danger: #ff5d82;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: radial-gradient(circle at top, #1f2960 0%, var(--bg) 45%);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  margin-bottom: 16px;
+}
+
+.kicker {
+  margin: 0;
+  font-size: 12px;
+  color: #20ddff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.title {
+  margin: 4px 0 0;
+  font-size: 30px;
+}
+
+.card {
+  background: linear-gradient(180deg, #111938, #1a2550);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+label {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+input,
+select {
+  width: 100%;
+  background: #0c1230;
+  color: var(--text);
+  border: 1px solid #33448b;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  color: #fff;
+  font-weight: 700;
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+
+.btn-primary {
+  background: linear-gradient(90deg, var(--primary), #6785ff);
+}
+
+.btn-success {
+  background: linear-gradient(90deg, #16b57a, var(--success));
+}
+
+.btn-danger {
+  background: linear-gradient(90deg, #ff446f, var(--danger));
+}
+
+.status {
+  color: var(--muted);
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.table-wrap {
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  border-bottom: 1px solid #2b376f;
+  padding: 10px 8px;
+  font-size: 14px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid #3a4a92;
+}
+
+.actions {
+  margin-top: 12px;
+}
+
+@media (max-width: 700px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .title {
+    font-size: 24px;
+  }
+}

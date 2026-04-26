@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login Administrativo</title>
+    <link rel="stylesheet" href="./portal.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <p class="kicker">Acesso restrito</p>
+        <h1 class="title">Login do Administrador</h1>
+      </header>
+
+      <section class="card">
+        <p id="statusText" class="status">Apenas administradores autorizados.</p>
+        <label>Email admin</label>
+        <input id="emailInput" type="email" />
+        <label>Senha</label>
+        <input id="passwordInput" type="password" />
+        <div class="actions">
+          <button id="loginButton" class="btn btn-primary">Entrar no painel</button>
+        </div>
+      </section>
+    </div>
+    <script src="./admin-login.js"></script>
+  </body>
+</html>
