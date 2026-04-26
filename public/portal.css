@@ -112,10 +112,17 @@ body {
 }
 
 .game-card {
+  position: relative;
+  overflow: hidden;
   border: 1px solid #35458f;
   border-radius: 14px;
   padding: 16px;
   background: linear-gradient(180deg, #101a3d, #162352);
+}
+
+.game-card > * {
+  position: relative;
+  z-index: 2;
 }
 
 .game-crash {
@@ -147,6 +154,42 @@ body {
 .game-btn {
   text-decoration: none;
   display: inline-block;
+}
+
+.game-art {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.45;
+  z-index: 0;
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.game-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(8, 12, 32, 0.42) 0%,
+    rgba(8, 12, 32, 0.7) 55%,
+    rgba(8, 12, 32, 0.9) 100%
+  );
+  z-index: 1;
+}
+
+.game-crash .game-art {
+  background-image: url("/card-crash-neon.png");
+}
+
+.game-slot .game-art {
+  background-image: url("/card-slot-neon.png");
+}
+
+.game-card:hover .game-art {
+  transform: scale(1.04);
+  opacity: 0.58;
 }
 
 .grid {
