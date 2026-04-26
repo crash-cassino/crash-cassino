@@ -1,8 +1,11 @@
 const statusText = document.getElementById("statusText");
+const welcomeTitle = document.getElementById("welcomeTitle");
 const emailField = document.getElementById("emailField");
 const roleField = document.getElementById("roleField");
 const creditsField = document.getElementById("creditsField");
 const activeField = document.getElementById("activeField");
+const creditsHighlight = document.getElementById("creditsHighlight");
+const activeHighlight = document.getElementById("activeHighlight");
 const logoutButton = document.getElementById("logoutButton");
 
 const token = localStorage.getItem("crashUserToken") || "";
@@ -38,8 +41,13 @@ async function loadProfile() {
     }
     emailField.value = data.email;
     roleField.value = data.role;
-    creditsField.value = String(Number(data.credits).toFixed(2));
-    activeField.value = data.isActive ? "Sim" : "Não";
+    const credits = Number(data.credits).toFixed(2);
+    const isActive = data.isActive ? "Sim" : "Não";
+    creditsField.value = String(credits);
+    activeField.value = isActive;
+    creditsHighlight.textContent = credits;
+    activeHighlight.textContent = isActive;
+    welcomeTitle.textContent = `Olá, ${data.email.split("@")[0]}`;
     setStatus("Conta carregada", "#1fcd8b");
   } catch (error) {
     setStatus(error.message, "#ff5d82");

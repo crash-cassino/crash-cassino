@@ -9,12 +9,34 @@
   <body>
     <div class="container">
       <header class="header">
-        <p class="kicker">Conta do jogador</p>
-        <h1 class="title">Minha conta</h1>
+        <p class="kicker">Player hub</p>
+        <h1 class="title">Central do Jogador</h1>
       </header>
 
-      <section class="card">
-        <p id="statusText" class="status">Carregando conta...</p>
+      <section class="card hero-panel">
+        <div>
+          <p class="hero-label">Conta ativa</p>
+          <h2 id="welcomeTitle">Bem-vindo(a)</h2>
+          <p id="statusText" class="status">Carregando conta...</p>
+        </div>
+        <div class="hero-chip">Sessão segura</div>
+      </section>
+
+      <section class="card" style="margin-top: 12px">
+        <div class="stats-row">
+          <article class="stat-card">
+            <span>Créditos disponíveis</span>
+            <strong id="creditsHighlight">0.00</strong>
+          </article>
+          <article class="stat-card">
+            <span>Status da conta</span>
+            <strong id="activeHighlight">Ativa</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top: 12px">
+        <p class="status">Dados da conta</p>
         <div class="grid">
           <div>
             <label>Email</label>
@@ -35,6 +57,8 @@
         </div>
         <div class="actions">
           <a href="/games.html" class="btn btn-primary" style="text-decoration:none;display:inline-block;">Menu de jogos</a>
+          <a href="/game.html" class="btn btn-success" style="text-decoration:none;display:inline-block;">Jogar Crash</a>
+          <a href="/slot.html" class="btn btn-primary" style="text-decoration:none;display:inline-block;">Jogar Caça-níquel</a>
           <button id="logoutButton" class="btn btn-danger">Sair</button>
         </div>
       </section>
