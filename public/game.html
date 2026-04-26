@@ -4,37 +4,78 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Crash Cassino - Jogo</title>
-    <link rel="stylesheet" href="./portal.css" />
+    <link rel="stylesheet" href="./game.css" />
   </head>
   <body>
-    <div class="container">
-      <header class="header">
-        <p class="kicker">Jogo crash</p>
-        <h1 class="title">Sala do jogador</h1>
+    <div class="bg-glow bg-glow-left"></div>
+    <div class="bg-glow bg-glow-right"></div>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <p class="kicker">Crash Experience</p>
+          <h1>Sala do Jogador</h1>
+          <p id="playerLabel" class="player-label">Carregando usuário...</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="action-link" href="/user.html">Painel do usuário</a>
+        </div>
       </header>
 
-      <section class="card">
-        <p id="statusText" class="status">Carregando sessão...</p>
-        <div class="grid">
-          <div>
-            <label>Saldo</label>
-            <input id="balanceField" type="text" readonly />
-          </div>
-          <div>
-            <label>Ultimo multiplicador</label>
-            <input id="multiplierField" type="text" readonly value="1.00x" />
-          </div>
-        </div>
-        <label>Aposta</label>
-        <input id="wagerInput" type="number" min="1" step="1" value="10" />
-        <label>Auto cashout (x)</label>
-        <input id="autoCashoutInput" type="number" min="1.01" step="0.01" value="2.00" />
-        <div class="actions">
-          <button id="startRoundButton" class="btn btn-primary">Iniciar rodada</button>
-          <button id="cashoutButton" class="btn btn-success" disabled>Cashout</button>
-          <a class="btn btn-primary" href="/user.html" style="text-decoration:none;display:inline-block">Painel do usuario</a>
-        </div>
+      <section class="hud-grid">
+        <article class="hud-card">
+          <span>Saldo</span>
+          <strong>R$ <span id="balanceField">0.00</span></strong>
+        </article>
+        <article class="hud-card">
+          <span>Multiplicador</span>
+          <strong id="multiplierField">1.00x</strong>
+        </article>
+        <article class="hud-card">
+          <span>Status</span>
+          <strong id="statusText">Carregando sessão...</strong>
+        </article>
       </section>
+
+      <main class="layout">
+        <section class="game-panel">
+          <canvas id="chartCanvas" width="960" height="420"></canvas>
+          <div class="chart-overlay">
+            <p>Crash point da rodada</p>
+            <strong id="targetCrashLabel">-</strong>
+          </div>
+          <div class="history">
+            <span>Histórico</span>
+            <div id="historyList" class="history-list"></div>
+          </div>
+        </section>
+
+        <aside class="control-panel">
+          <div class="panel-card">
+            <h2>Aposta</h2>
+            <label>Valor da aposta</label>
+            <input id="wagerInput" type="number" min="1" step="1" value="10" />
+            <div class="quick-buttons">
+              <button class="quick-btn" data-action="half">1/2</button>
+              <button class="quick-btn" data-action="double">2x</button>
+              <button class="quick-btn" data-action="min">Min</button>
+              <button class="quick-btn" data-action="max">Max</button>
+            </div>
+            <label>Auto cashout (x)</label>
+            <input id="autoCashoutInput" type="number" min="1.01" step="0.01" value="2.00" />
+            <div class="actions">
+              <button id="startRoundButton" class="btn btn-primary">Iniciar rodada</button>
+              <button id="cashoutButton" class="btn btn-success" disabled>Cashout agora</button>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <h2>Como jogar</h2>
+            <p>1. Defina aposta e auto cashout.</p>
+            <p>2. Inicie a rodada e acompanhe a subida.</p>
+            <p>3. Retire antes do crash para vencer.</p>
+          </div>
+        </aside>
+      </main>
     </div>
     <script src="./game.js"></script>
   </body>
