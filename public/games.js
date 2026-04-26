@@ -1,6 +1,7 @@
 const statusText = document.getElementById("statusText");
 const playerField = document.getElementById("playerField");
 const creditsField = document.getElementById("creditsField");
+const welcomeTitle = document.getElementById("welcomeTitle");
 
 const token = localStorage.getItem("crashUserToken") || "";
 
@@ -31,9 +32,10 @@ async function init() {
       redirectLogin();
       return;
     }
-    playerField.value = data.email;
-    creditsField.value = Number(data.credits).toFixed(2);
-    setStatus("Pronto para jogar");
+    playerField.textContent = data.email;
+    creditsField.textContent = Number(data.credits).toFixed(2);
+    welcomeTitle.textContent = `Bem-vindo, ${data.email.split("@")[0]}`;
+    setStatus("Tudo pronto. Escolha um jogo e divirta-se.");
   } catch (error) {
     setStatus(error.message, "#ff5d82");
     setTimeout(redirectLogin, 900);

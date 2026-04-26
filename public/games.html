@@ -9,25 +9,50 @@
   <body>
     <div class="container">
       <header class="header">
-        <p class="kicker">Lobby</p>
-        <h1 class="title">Escolha seu jogo</h1>
+        <p class="kicker">Game Lobby</p>
+        <h1 class="title">Escolha sua próxima jogada</h1>
       </header>
 
-      <section class="card">
-        <p id="statusText" class="status">Carregando conta...</p>
-        <div class="grid">
-          <div>
-            <label>Jogador</label>
-            <input id="playerField" type="text" readonly />
-          </div>
-          <div>
-            <label>Creditos</label>
-            <input id="creditsField" type="text" readonly />
-          </div>
+      <section class="card hero-panel">
+        <div>
+          <p class="hero-label">Sessão do jogador</p>
+          <h2 id="welcomeTitle">Carregando...</h2>
+          <p id="statusText" class="status">Carregando conta...</p>
         </div>
+        <div class="hero-chip">Online</div>
+      </section>
+
+      <section class="card" style="margin-top: 12px;">
+        <div class="stats-row">
+          <article class="stat-card">
+            <span>Jogador</span>
+            <strong id="playerField">-</strong>
+          </article>
+          <article class="stat-card">
+            <span>Créditos</span>
+            <strong id="creditsField">0.00</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="games-grid" style="margin-top: 14px;">
+        <article class="game-card game-crash">
+          <p class="game-kicker">Clássico</p>
+          <h3>Crash</h3>
+          <p>Suba o multiplicador e retire no momento certo antes do crash.</p>
+          <a href="/game.html" class="btn btn-primary game-btn">Jogar Crash</a>
+        </article>
+
+        <article class="game-card game-slot">
+          <p class="game-kicker">Rápido</p>
+          <h3>Caça-níquel</h3>
+          <p>Gire os rolos e busque combinações para multiplicar seus créditos.</p>
+          <a href="/slot.html" class="btn btn-success game-btn">Jogar Slot</a>
+        </article>
+      </section>
+
+      <section class="card" style="margin-top: 12px;">
         <div class="actions">
-          <a href="/game.html" class="btn btn-primary" style="text-decoration:none;display:inline-block;">Jogar Crash</a>
-          <a href="/slot.html" class="btn btn-success" style="text-decoration:none;display:inline-block;">Jogar Caça-níquel</a>
           <a href="/user.html" class="btn btn-primary" style="text-decoration:none;display:inline-block;">Painel do usuário</a>
         </div>
       </section>

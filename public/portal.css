@@ -102,6 +102,51 @@ body {
   display: block;
   margin-top: 4px;
   font-size: 26px;
+  word-break: break-word;
+}
+
+.games-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.game-card {
+  border: 1px solid #35458f;
+  border-radius: 14px;
+  padding: 16px;
+  background: linear-gradient(180deg, #101a3d, #162352);
+}
+
+.game-crash {
+  box-shadow: inset 0 0 0 1px rgba(126, 99, 255, 0.25);
+}
+
+.game-slot {
+  box-shadow: inset 0 0 0 1px rgba(31, 205, 139, 0.25);
+}
+
+.game-kicker {
+  margin: 0 0 6px;
+  color: #20ddff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 11px;
+}
+
+.game-card h3 {
+  margin: 0 0 8px;
+  font-size: 30px;
+}
+
+.game-card p {
+  margin: 0 0 14px;
+  color: var(--muted);
+}
+
+.game-btn {
+  text-decoration: none;
+  display: inline-block;
 }
 
 .grid {
@@ -197,6 +242,9 @@ td {
     gap: 8px;
   }
   .stats-row {
+    grid-template-columns: 1fr;
+  }
+  .games-grid {
     grid-template-columns: 1fr;
   }
   .title {
