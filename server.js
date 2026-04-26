@@ -26,6 +26,10 @@ const MIN_INSTANT_CRASH_CHANCE = Number(process.env.MIN_INSTANT_CRASH_CHANCE || 
 const MAX_INSTANT_CRASH_CHANCE = Number(process.env.MAX_INSTANT_CRASH_CHANCE || 0.42);
 const MIN_WAGER_PER_ROUND = Number(process.env.MIN_WAGER_PER_ROUND || 1);
 const MAX_WAGER_PER_ROUND = Number(process.env.MAX_WAGER_PER_ROUND || 10);
+const SLOT_TARGET_PROFIT_MARGIN = Number(process.env.SLOT_TARGET_PROFIT_MARGIN || 0.14);
+const SLOT_FORCE_LOSS_BASE_CHANCE = Number(process.env.SLOT_FORCE_LOSS_BASE_CHANCE || 0.24);
+const SLOT_MIN_FORCE_LOSS_CHANCE = Number(process.env.SLOT_MIN_FORCE_LOSS_CHANCE || 0.08);
+const SLOT_MAX_FORCE_LOSS_CHANCE = Number(process.env.SLOT_MAX_FORCE_LOSS_CHANCE || 0.8);
 
 const shouldUseSsl = Boolean(DATABASE_URL && !DATABASE_URL.includes("localhost"));
 const dbPool = DATABASE_URL
@@ -43,6 +47,11 @@ const gameState = {
   smoothedMargin: 0,
   consecutiveInstant: 0,
   consecutiveNormal: 0
+};
+
+const slotState = {
+  totalWagered: 0,
+  totalPaidOut: 0
 };
 
 async function ensureDatabaseSchema() {
@@ -230,18 +239,49 @@ function pickSlotSymbol() {
 function getSlotMultiplier(reels) {
   const [a, b, c] = reels;
   if (a === b && b === c) {
-    if (a === "cherry") return 2.0;
-    if (a === "lemon") return 3.0;
-    if (a === "bell") return 5.0;
-    if (a === "seven") return 10.0;
-    if (a === "diamond") return 20.0;
+    if (a === "cherry") return 1.8;
+    if (a === "lemon") return 2.8;
+    if (a === "bell") return 4.5;
+    if (a === "seven") return 8.0;
+    if (a === "diamond") return 14.0;
   }
 
-  // small consolation for two matching cherries
-  if ((a === b || b === c || a === c) && (a === "cherry" || b === "cherry" || c === "cherry")) {
-    return 1.15;
+  // Consolation only when there are exactly two cherries.
+  const cherries = reels.filter((symbol) => symbol === "cherry").length;
+  if (cherries === 2) {
+    return 0.2;
   }
   return 0;
+}
+
+function calculateSlotMargin() {
+  if (slotState.totalWagered <= 0) return 0;
+  return (slotState.totalWagered - slotState.totalPaidOut) / slotState.totalWagered;
+}
+
+function shouldForceSlotLoss() {
+  const margin = calculateSlotMargin();
+  const deficit = SLOT_TARGET_PROFIT_MARGIN - margin;
+  let chance = SLOT_FORCE_LOSS_BASE_CHANCE + deficit * 1.35;
+  chance += (Math.random() - 0.5) * 0.05;
+  chance = clamp(chance, SLOT_MIN_FORCE_LOSS_CHANCE, SLOT_MAX_FORCE_LOSS_CHANCE);
+  return Math.random() < chance;
+}
+
+function generateSlotReels(forceLoss) {
+  if (!forceLoss) {
+    return [pickSlotSymbol(), pickSlotSymbol(), pickSlotSymbol()];
+  }
+
+  for (let i = 0; i < 24; i += 1) {
+    const reels = [pickSlotSymbol(), pickSlotSymbol(), pickSlotSymbol()];
+    if (getSlotMultiplier(reels) === 0) {
+      return reels;
+    }
+  }
+
+  // Deterministic fallback to avoid any accidental win.
+  return ["diamond", "seven", "bell"];
 }
 
 async function mapUserFromId(userId) {
@@ -697,7 +737,8 @@ app.post("/slot/spin", requireDatabase, requireAuth, requirePlayer, async (req, 
       return res.status(400).json({ error: "Saldo insuficiente" });
     }
 
-    const reels = [pickSlotSymbol(), pickSlotSymbol(), pickSlotSymbol()];
+    const forceLoss = shouldForceSlotLoss();
+    const reels = generateSlotReels(forceLoss);
     const multiplier = getSlotMultiplier(reels);
     const payout = Number((wager * multiplier).toFixed(2));
     const newBalance = Number((credits - wager + payout).toFixed(2));
@@ -714,6 +755,8 @@ app.post("/slot/spin", requireDatabase, requireAuth, requirePlayer, async (req, 
       );
     }
     await client.query("COMMIT");
+    slotState.totalWagered += wager;
+    slotState.totalPaidOut += payout;
 
     return res.json({
       reels,
