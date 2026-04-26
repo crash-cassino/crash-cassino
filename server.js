@@ -19,6 +19,7 @@ const TARGET_PROFIT_MARGIN = Number(process.env.TARGET_PROFIT_MARGIN || 0.12);
 const INSTANT_CRASH_CHANCE = Number(process.env.INSTANT_CRASH_CHANCE || 0.3);
 const BASE_HOUSE_EDGE = Number(process.env.BASE_HOUSE_EDGE || 0.02);
 const ROUND_DURATION_MS = Number(process.env.ROUND_DURATION_MS || 9000);
+const ROUND_GROWTH_RATE = Number(process.env.ROUND_GROWTH_RATE || 0.11);
 
 const shouldUseSsl = Boolean(DATABASE_URL && !DATABASE_URL.includes("localhost"));
 const dbPool = DATABASE_URL
@@ -141,7 +142,7 @@ function calculateCurrentMargin() {
 function generateBaseCrashPoint() {
   const r = randomFloat();
   const adjusted = Math.max(1e-9, 1 - r);
-  const multiplier = (1 - BASE_HOUSE_EDGE) / adjusted;
+  const multiplier = ((1 - BASE_HOUSE_EDGE) / adjusted) * (1 - BASE_HOUSE_EDGE * 0.6);
   return Number(Math.max(1.0, multiplier).toFixed(2));
 }
 
@@ -156,7 +157,7 @@ function createRound() {
   const currentMargin = calculateCurrentMargin();
   const forceInstant = shouldForceInstantCrash(currentMargin);
   const rawCrashPoint = forceInstant ? 1.0 : generateBaseCrashPoint();
-  const maxCrashPoint = Number(Math.exp(0.14 * Math.max(0.1, ROUND_DURATION_MS / 1000)).toFixed(2));
+  const maxCrashPoint = Number(Math.exp(ROUND_GROWTH_RATE * Math.max(0.1, ROUND_DURATION_MS / 1000)).toFixed(2));
   const crashPoint = Number(Math.min(rawCrashPoint, Math.max(1.01, maxCrashPoint)).toFixed(2));
 
   gameState.rounds += 1;
@@ -168,7 +169,8 @@ function createRound() {
     id: gameState.rounds,
     crashPoint,
     mode: forceInstant ? "instant_crash" : "normal",
-    durationMs: ROUND_DURATION_MS
+    durationMs: ROUND_DURATION_MS,
+    growthRate: ROUND_GROWTH_RATE
   };
 }
 
