@@ -34,7 +34,11 @@ const state = {
   roundNoise: {
     seedA: Math.random() * Math.PI * 2,
     seedB: Math.random() * Math.PI * 2,
-    amplitude: 0.03
+    amplitude: 0.03,
+    drift: 0,
+    burstAt: 1.2,
+    burstWidth: 0.45,
+    burstStrength: 0
   }
 };
 
@@ -82,8 +86,18 @@ function getMultiplier(elapsedMs) {
   const growthRate = state.round && Number.isFinite(Number(state.round.growthRate)) ? Number(state.round.growthRate) : 0.11;
   const base = Math.exp(growthRate * seconds);
   const waveA = Math.sin(seconds * 4.2 + state.roundNoise.seedA) * state.roundNoise.amplitude;
-  const waveB = Math.cos(seconds * 2.5 + state.roundNoise.seedB) * (state.roundNoise.amplitude * 0.6);
-  const noisy = Math.max(1.0, base * (1 + waveA + waveB));
+  const waveB = Math.cos(seconds * 2.5 + state.roundNoise.seedB) * (state.roundNoise.amplitude * 0.55);
+  const waveC = Math.sin(seconds * 6.8 + state.roundNoise.seedA * 0.7) * (state.roundNoise.amplitude * 0.25);
+
+  // Gentle drift changes the "personality" of each round without creating abrupt jumps.
+  const driftEffect = state.roundNoise.drift * seconds;
+
+  // Single gaussian-like boost point creates a less repetitive mid-round shape.
+  const burstDistance = seconds - state.roundNoise.burstAt;
+  const burst = Math.exp(-(burstDistance * burstDistance) / (2 * state.roundNoise.burstWidth * state.roundNoise.burstWidth));
+  const burstEffect = burst * state.roundNoise.burstStrength;
+
+  const noisy = Math.max(1.0, base * (1 + waveA + waveB + waveC + driftEffect + burstEffect));
   const stable = Math.max(state.lastMultiplier + 0.01, noisy);
   return Number(stable.toFixed(2));
 }
@@ -433,7 +447,11 @@ async function startRound() {
     state.roundNoise = {
       seedA: Math.random() * Math.PI * 2,
       seedB: Math.random() * Math.PI * 2,
-      amplitude: 0.02 + Math.random() * 0.05
+      amplitude: 0.02 + Math.random() * 0.055,
+      drift: (Math.random() - 0.5) * 0.012,
+      burstAt: 0.8 + Math.random() * 2.0,
+      burstWidth: 0.25 + Math.random() * 0.55,
+      burstStrength: (Math.random() - 0.25) * 0.06
     };
     state.path = [{ x: 0, y: 1 }];
     state.multiplier = 1;
