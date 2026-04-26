@@ -20,6 +20,10 @@ const INSTANT_CRASH_CHANCE = Number(process.env.INSTANT_CRASH_CHANCE || 0.3);
 const BASE_HOUSE_EDGE = Number(process.env.BASE_HOUSE_EDGE || 0.02);
 const ROUND_DURATION_MS = Number(process.env.ROUND_DURATION_MS || 9000);
 const ROUND_GROWTH_RATE = Number(process.env.ROUND_GROWTH_RATE || 0.11);
+const MARGIN_SMOOTHING_ALPHA = Number(process.env.MARGIN_SMOOTHING_ALPHA || 0.12);
+const MARGIN_HYSTERESIS = Number(process.env.MARGIN_HYSTERESIS || 0.015);
+const MIN_INSTANT_CRASH_CHANCE = Number(process.env.MIN_INSTANT_CRASH_CHANCE || 0.03);
+const MAX_INSTANT_CRASH_CHANCE = Number(process.env.MAX_INSTANT_CRASH_CHANCE || 0.42);
 
 const shouldUseSsl = Boolean(DATABASE_URL && !DATABASE_URL.includes("localhost"));
 const dbPool = DATABASE_URL
@@ -33,7 +37,10 @@ const gameState = {
   totalWagered: 0,
   totalPaidOut: 0,
   rounds: 0,
-  instantCrashes: 0
+  instantCrashes: 0,
+  smoothedMargin: 0,
+  consecutiveInstant: 0,
+  consecutiveNormal: 0
 };
 
 async function ensureDatabaseSchema() {
@@ -146,16 +153,46 @@ function generateBaseCrashPoint() {
   return Number(Math.max(1.0, multiplier).toFixed(2));
 }
 
-function shouldForceInstantCrash(currentMargin) {
-  if (currentMargin >= TARGET_PROFIT_MARGIN) {
-    return false;
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getSmoothedMargin(currentMargin) {
+  gameState.smoothedMargin =
+    gameState.smoothedMargin * (1 - MARGIN_SMOOTHING_ALPHA) + currentMargin * MARGIN_SMOOTHING_ALPHA;
+  return gameState.smoothedMargin;
+}
+
+function shouldForceInstantCrash(smoothedMargin) {
+  const deficit = TARGET_PROFIT_MARGIN - smoothedMargin;
+
+  // Smooth correction: when near target, avoid hard switches that create obvious streaks.
+  let dynamicChance = INSTANT_CRASH_CHANCE;
+  if (Math.abs(deficit) <= MARGIN_HYSTERESIS) {
+    dynamicChance = INSTANT_CRASH_CHANCE * 0.6;
+  } else {
+    dynamicChance = INSTANT_CRASH_CHANCE + deficit * 1.25;
   }
-  return randomFloat() < INSTANT_CRASH_CHANCE;
+
+  // Tiny per-round jitter avoids repetitive deterministic patterns.
+  dynamicChance += (randomFloat() - 0.5) * 0.06;
+
+  // Anti-streak control: reduce long blocks of same outcome.
+  if (gameState.consecutiveInstant >= 3) {
+    dynamicChance -= 0.18;
+  }
+  if (gameState.consecutiveNormal >= 6) {
+    dynamicChance += 0.09;
+  }
+
+  dynamicChance = clamp(dynamicChance, MIN_INSTANT_CRASH_CHANCE, MAX_INSTANT_CRASH_CHANCE);
+  return randomFloat() < dynamicChance;
 }
 
 function createRound() {
   const currentMargin = calculateCurrentMargin();
-  const forceInstant = shouldForceInstantCrash(currentMargin);
+  const smoothedMargin = getSmoothedMargin(currentMargin);
+  const forceInstant = shouldForceInstantCrash(smoothedMargin);
   const rawCrashPoint = forceInstant ? 1.0 : generateBaseCrashPoint();
   const maxCrashPoint = Number(Math.exp(ROUND_GROWTH_RATE * Math.max(0.1, ROUND_DURATION_MS / 1000)).toFixed(2));
   const crashPoint = Number(Math.min(rawCrashPoint, Math.max(1.01, maxCrashPoint)).toFixed(2));
@@ -163,6 +200,11 @@ function createRound() {
   gameState.rounds += 1;
   if (forceInstant) {
     gameState.instantCrashes += 1;
+    gameState.consecutiveInstant += 1;
+    gameState.consecutiveNormal = 0;
+  } else {
+    gameState.consecutiveNormal += 1;
+    gameState.consecutiveInstant = 0;
   }
 
   return {
