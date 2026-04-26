@@ -379,12 +379,25 @@ app.post("/admin/credits/add", requireDatabase, requireAuth, requireAdmin, async
   }
 });
 
-app.post("/round/start", (req, res) => {
+app.post("/round/start", requireDatabase, requireAuth, async (req, res) => {
+  try {
+    const user = await dbPool.query("SELECT credits FROM users WHERE id = $1", [req.user.userId]);
+    if (user.rows.length === 0) {
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
+    const credits = Number(user.rows[0].credits || 0);
+    if (credits <= 0) {
+      return res.status(400).json({ error: "Saldo insuficiente para iniciar aposta" });
+    }
+  } catch (error) {
+    return res.status(500).json({ error: "Falha ao validar saldo" });
+  }
+
   const round = createRound();
   res.json(round);
 });
 
-app.post("/bet/settle", (req, res) => {
+app.post("/bet/settle", requireDatabase, requireAuth, async (req, res) => {
   const { wager, autoCashoutAt, crashPoint } = req.body;
 
   const numericWager = Number(wager);
@@ -403,21 +416,58 @@ app.post("/bet/settle", (req, res) => {
     return res.status(400).json({ error: "crashPoint inválido" });
   }
 
-  state.totalWagered += numericWager;
+  const client = await dbPool.connect();
+  try {
+    await client.query("BEGIN");
 
-  const won = numericAutoCashoutAt < numericCrashPoint;
-  const payout = won ? Number((numericWager * numericAutoCashoutAt).toFixed(2)) : 0;
-  state.totalPaidOut += payout;
+    const found = await client.query("SELECT credits FROM users WHERE id = $1 FOR UPDATE", [req.user.userId]);
+    if (found.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
 
-  return res.json({
-    won,
-    wager: numericWager,
-    autoCashoutAt: numericAutoCashoutAt,
-    crashPoint: numericCrashPoint,
-    payout,
-    houseProfit: Number(calculateCurrentProfit().toFixed(2)),
-    profitMargin: Number(calculateCurrentMargin().toFixed(4))
-  });
+    const currentCredits = Number(found.rows[0].credits || 0);
+    if (currentCredits < numericWager) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Saldo insuficiente" });
+    }
+
+    const won = numericAutoCashoutAt < numericCrashPoint;
+    const payout = won ? Number((numericWager * numericAutoCashoutAt).toFixed(2)) : 0;
+    const newCredits = Number((currentCredits - numericWager + payout).toFixed(2));
+
+    await client.query("UPDATE users SET credits = $1 WHERE id = $2", [newCredits, req.user.userId]);
+    await client.query(
+      "INSERT INTO credit_transactions (user_id, amount, reason, admin_user_id) VALUES ($1, $2, $3, $4)",
+      [req.user.userId, -numericWager, "bet_wager", null]
+    );
+    if (payout > 0) {
+      await client.query(
+        "INSERT INTO credit_transactions (user_id, amount, reason, admin_user_id) VALUES ($1, $2, $3, $4)",
+        [req.user.userId, payout, "bet_payout", null]
+      );
+    }
+
+    state.totalWagered += numericWager;
+    state.totalPaidOut += payout;
+    await client.query("COMMIT");
+
+    return res.json({
+      won,
+      wager: numericWager,
+      autoCashoutAt: numericAutoCashoutAt,
+      crashPoint: numericCrashPoint,
+      payout,
+      balance: newCredits,
+      houseProfit: Number(calculateCurrentProfit().toFixed(2)),
+      profitMargin: Number(calculateCurrentMargin().toFixed(4))
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return res.status(500).json({ error: "Falha ao liquidar aposta" });
+  } finally {
+    client.release();
+  }
 });
 
 app.get("/stats", (req, res) => {

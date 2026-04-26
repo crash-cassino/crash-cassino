@@ -51,7 +51,8 @@ function getAuthHeaders() {
 
 async function syncBalanceFromAccount() {
   if (!state.authToken) {
-    return;
+    window.location.href = "/auth.html";
+    return false;
   }
   try {
     const response = await fetch("/auth/me", { headers: getAuthHeaders() });
@@ -59,9 +60,15 @@ async function syncBalanceFromAccount() {
     if (response.ok) {
       state.balance = Number(data.credits || 0);
       balanceLabel.textContent = formatMoney(state.balance);
+      return true;
     }
+    localStorage.removeItem("crashAuthToken");
+    state.authToken = "";
+    window.location.href = "/auth.html";
+    return false;
   } catch (error) {
-    // Keep local fallback balance if auth is unavailable.
+    window.location.href = "/auth.html";
+    return false;
   }
 }
 
@@ -117,7 +124,10 @@ async function startRound() {
     betButton.disabled = true;
     setStatus("Iniciando rodada...", "#0fd7ff");
 
-    const response = await fetch("/round/start", { method: "POST" });
+    const response = await fetch("/round/start", {
+      method: "POST",
+      headers: getAuthHeaders()
+    });
     const round = await response.json();
     if (!response.ok) {
       throw new Error(round.error || "Falha ao iniciar rodada");
@@ -135,8 +145,6 @@ async function startRound() {
     state.explosionTTL = 0;
     state.path = [{ x: 0, y: 1 }];
     state.multiplier = 1.0;
-    state.balance -= wager;
-    balanceLabel.textContent = formatMoney(state.balance);
     roundModeLabel.textContent = round.mode;
     cashoutButton.disabled = false;
 
@@ -158,7 +166,10 @@ async function settleBet(cashoutAt) {
   try {
     const response = await fetch("/bet/settle", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders()
+      },
       body: JSON.stringify({
         wager: state.round.wager,
         autoCashoutAt: cashoutAt,
@@ -172,13 +183,15 @@ async function settleBet(cashoutAt) {
     }
 
     if (result.payout > 0) {
-      state.balance += result.payout;
       setStatus(`Cashout em ${cashoutAt.toFixed(2)}x!`, "#18dc95");
     } else {
       setStatus(`Crash em ${result.crashPoint.toFixed(2)}x`, "#ff5a7d");
     }
 
-    balanceLabel.textContent = formatMoney(state.balance);
+    if (Number.isFinite(Number(result.balance))) {
+      state.balance = Number(result.balance);
+      balanceLabel.textContent = formatMoney(state.balance);
+    }
   } catch (error) {
     state.hasSettled = false;
     cashoutButton.disabled = false;
