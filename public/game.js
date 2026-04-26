@@ -12,6 +12,8 @@ const cashoutButton = document.getElementById("cashoutButton");
 const quickButtons = document.querySelectorAll(".quick-btn");
 const chartCanvas = document.getElementById("chartCanvas");
 const chartCtx = chartCanvas.getContext("2d");
+const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+let sharedAudioCtx = null;
 
 const token = localStorage.getItem("crashUserToken") || "";
 
@@ -215,9 +217,14 @@ function drawParticles() {
 
 function playSound(type) {
   if (!state.soundEnabled) return;
-  const AudioCtx = window.AudioContext || window.webkitAudioContext;
-  if (!AudioCtx) return;
-  const ctx = new AudioCtx();
+  if (!AudioCtxClass) return;
+  if (!sharedAudioCtx) {
+    sharedAudioCtx = new AudioCtxClass();
+  }
+  const ctx = sharedAudioCtx;
+  if (ctx.state === "suspended") {
+    return;
+  }
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.connect(gain);
@@ -237,6 +244,20 @@ function playSound(type) {
   gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.24);
   osc.start();
   osc.stop(ctx.currentTime + 0.26);
+}
+
+async function unlockAudio() {
+  if (!AudioCtxClass) return;
+  if (!sharedAudioCtx) {
+    sharedAudioCtx = new AudioCtxClass();
+  }
+  if (sharedAudioCtx.state === "suspended") {
+    try {
+      await sharedAudioCtx.resume();
+    } catch (error) {
+      // Ignore browser resume errors; user can still retry by interacting.
+    }
+  }
 }
 
 async function fetchMe() {
@@ -340,6 +361,7 @@ function animate() {
 }
 
 async function startRound() {
+  await unlockAudio();
   if (state.inRound) return;
   const wager = Number(wagerInput.value);
   if (!Number.isFinite(wager) || wager <= 0) {
@@ -404,6 +426,9 @@ quickButtons.forEach((button) => {
 
 soundToggle.addEventListener("change", () => {
   state.soundEnabled = soundToggle.checked;
+  if (state.soundEnabled) {
+    unlockAudio();
+  }
 });
 effectsToggle.addEventListener("change", () => {
   state.effectsEnabled = effectsToggle.checked;
@@ -423,3 +448,13 @@ fetchMe().then((ok) => {
     setStatus("Sessão ativa. Boa sorte!", "#1ecf8d");
   }
 });
+
+document.addEventListener(
+  "pointerdown",
+  () => {
+    if (state.soundEnabled) {
+      unlockAudio();
+    }
+  },
+  { once: true }
+);
