@@ -24,6 +24,8 @@ const MARGIN_SMOOTHING_ALPHA = Number(process.env.MARGIN_SMOOTHING_ALPHA || 0.12
 const MARGIN_HYSTERESIS = Number(process.env.MARGIN_HYSTERESIS || 0.015);
 const MIN_INSTANT_CRASH_CHANCE = Number(process.env.MIN_INSTANT_CRASH_CHANCE || 0.03);
 const MAX_INSTANT_CRASH_CHANCE = Number(process.env.MAX_INSTANT_CRASH_CHANCE || 0.42);
+const MIN_WAGER_PER_ROUND = Number(process.env.MIN_WAGER_PER_ROUND || 1);
+const MAX_WAGER_PER_ROUND = Number(process.env.MAX_WAGER_PER_ROUND || 10);
 
 const shouldUseSsl = Boolean(DATABASE_URL && !DATABASE_URL.includes("localhost"));
 const dbPool = DATABASE_URL
@@ -610,8 +612,10 @@ app.post("/bet/settle", requireDatabase, requireAuth, requirePlayer, async (req,
   const autoCashoutAt = Number(req.body.autoCashoutAt);
   const crashPoint = Number(req.body.crashPoint);
 
-  if (!Number.isFinite(wager) || wager <= 0) {
-    return res.status(400).json({ error: "Aposta inválida" });
+  if (!Number.isFinite(wager) || wager < MIN_WAGER_PER_ROUND || wager > MAX_WAGER_PER_ROUND) {
+    return res
+      .status(400)
+      .json({ error: `A aposta por rodada deve ser entre ${MIN_WAGER_PER_ROUND} e ${MAX_WAGER_PER_ROUND} créditos` });
   }
   if (!Number.isFinite(autoCashoutAt) || autoCashoutAt < 1) {
     return res.status(400).json({ error: "Auto cashout inválido" });
@@ -672,8 +676,10 @@ app.post("/bet/settle", requireDatabase, requireAuth, requirePlayer, async (req,
 
 app.post("/slot/spin", requireDatabase, requireAuth, requirePlayer, async (req, res) => {
   const wager = Number(req.body.wager);
-  if (!Number.isFinite(wager) || wager <= 0) {
-    return res.status(400).json({ error: "Aposta inválida" });
+  if (!Number.isFinite(wager) || wager < MIN_WAGER_PER_ROUND || wager > MAX_WAGER_PER_ROUND) {
+    return res
+      .status(400)
+      .json({ error: `A aposta por rodada deve ser entre ${MIN_WAGER_PER_ROUND} e ${MAX_WAGER_PER_ROUND} créditos` });
   }
 
   const client = await dbPool.connect();

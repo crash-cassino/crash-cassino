@@ -9,6 +9,8 @@ const reelEls = [
 ];
 
 const token = localStorage.getItem("crashUserToken") || "";
+const minWager = 1;
+const maxWager = 10;
 const symbols = {
   cherry: "🍒",
   lemon: "🍋",
@@ -23,6 +25,11 @@ let spinInterval = null;
 function setStatus(message, color) {
   statusText.textContent = message;
   statusText.style.color = color || "#9ca9d8";
+}
+
+function normalizeWager(value) {
+  if (!Number.isFinite(value)) return minWager;
+  return Math.min(maxWager, Math.max(minWager, Math.floor(value)));
 }
 
 function redirectLogin() {
@@ -79,9 +86,10 @@ function stopVisualSpin(finalReels) {
 }
 
 async function spin() {
-  const wager = Number(wagerInput.value);
-  if (!Number.isFinite(wager) || wager <= 0) {
-    setStatus("Aposta inválida", "#ff5d82");
+  const wager = normalizeWager(Number(wagerInput.value));
+  wagerInput.value = String(wager);
+  if (!Number.isFinite(wager) || wager < minWager || wager > maxWager) {
+    setStatus(`Aposta por giro deve ser entre ${minWager} e ${maxWager}`, "#ff5d82");
     return;
   }
   spinButton.disabled = true;
@@ -117,4 +125,7 @@ async function spin() {
 }
 
 spinButton.addEventListener("click", spin);
+wagerInput.addEventListener("input", () => {
+  wagerInput.value = String(normalizeWager(Number(wagerInput.value)));
+});
 loadMe();

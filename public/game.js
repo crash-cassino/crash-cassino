@@ -17,6 +17,8 @@ let sharedAudioCtx = null;
 let noiseBuffer = null;
 
 const token = localStorage.getItem("crashUserToken") || "";
+const minWager = 1;
+const maxWager = 10;
 
 const state = {
   balance: 0,
@@ -68,6 +70,11 @@ function redirectLogin() {
 
 function updateBalanceLabel() {
   balanceField.textContent = state.balance.toFixed(2);
+}
+
+function normalizeWager(value) {
+  if (!Number.isFinite(value)) return minWager;
+  return Math.min(maxWager, Math.max(minWager, Math.floor(value)));
 }
 
 function resizeCanvas() {
@@ -432,9 +439,10 @@ function animate() {
 async function startRound() {
   await unlockAudio();
   if (state.inRound) return;
-  const wager = Number(wagerInput.value);
-  if (!Number.isFinite(wager) || wager <= 0) {
-    setStatus("Aposta inválida", "#ff5a83");
+  const wager = normalizeWager(Number(wagerInput.value));
+  wagerInput.value = String(wager);
+  if (!Number.isFinite(wager) || wager < minWager || wager > maxWager) {
+    setStatus(`Aposta por rodada deve ser entre ${minWager} e ${maxWager}`, "#ff5a83");
     return;
   }
   if (wager > state.balance) {
@@ -485,18 +493,22 @@ startRoundButton.addEventListener("click", startRound);
 
 quickButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    const current = Number(wagerInput.value) || 1;
+    const current = normalizeWager(Number(wagerInput.value) || minWager);
     const action = button.dataset.action;
     if (action === "half") {
-      wagerInput.value = Math.max(1, Math.floor(current / 2));
+      wagerInput.value = String(normalizeWager(Math.floor(current / 2)));
     } else if (action === "double") {
-      wagerInput.value = Math.max(1, Math.min(Math.floor(state.balance), current * 2));
+      wagerInput.value = String(normalizeWager(Math.min(Math.floor(state.balance), current * 2)));
     } else if (action === "min") {
-      wagerInput.value = 1;
+      wagerInput.value = String(minWager);
     } else if (action === "max") {
-      wagerInput.value = Math.max(1, Math.floor(state.balance));
+      wagerInput.value = String(normalizeWager(Math.floor(state.balance)));
     }
   });
+});
+
+wagerInput.addEventListener("input", () => {
+  wagerInput.value = String(normalizeWager(Number(wagerInput.value)));
 });
 
 soundToggle.addEventListener("change", () => {
