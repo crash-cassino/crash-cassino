@@ -48,7 +48,7 @@ async function loadMe() {
     if (!response.ok || data.role !== "player") {
       throw new Error(data.error || "Sessão inválida");
     }
-    creditsField.value = Number(data.credits).toFixed(2);
+    creditsField.textContent = Number(data.credits).toFixed(2);
     setStatus("Pronto para girar");
     return true;
   } catch (error) {
@@ -101,7 +101,7 @@ async function spin() {
 
     setTimeout(() => {
       stopVisualSpin(data.reels || []);
-      creditsField.value = Number(data.balance || 0).toFixed(2);
+      creditsField.textContent = Number(data.balance || 0).toFixed(2);
       if (data.won) {
         setStatus(`Ganhou! x${Number(data.multiplier).toFixed(2)} - +${Number(data.payout).toFixed(2)} créditos`, "#1fcd8b");
       } else {

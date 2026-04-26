@@ -9,31 +9,39 @@
   <body>
     <div class="container">
       <header class="header">
-        <p class="kicker">Slot</p>
+        <p class="kicker">Slot Experience</p>
         <h1 class="title">Caça-níquel Neon</h1>
       </header>
 
-      <section class="card">
-        <p id="statusText" class="status">Carregando conta...</p>
+      <section class="card slot-hero">
+        <div class="slot-hero-art" aria-hidden="true"></div>
+        <div class="slot-hero-content">
+          <p class="hero-label">Rodada em destaque</p>
+          <h2>Sinta a energia do giro</h2>
+          <p id="statusText" class="status">Carregando conta...</p>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top: 12px;">
         <div class="grid">
-          <div>
+          <div class="slot-input">
             <label>Saldo</label>
-            <input id="creditsField" type="text" readonly />
+            <strong id="creditsField" class="slot-balance">0.00</strong>
           </div>
-          <div>
+          <div class="slot-input">
             <label>Aposta por giro</label>
             <input id="wagerInput" type="number" min="1" step="1" value="10" />
           </div>
         </div>
 
-        <div id="reelsWrap" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0;">
-          <div id="reel1" style="border:1px solid #33448b;border-radius:12px;padding:18px 0;text-align:center;font-size:28px;background:#0d1537;">🍒</div>
-          <div id="reel2" style="border:1px solid #33448b;border-radius:12px;padding:18px 0;text-align:center;font-size:28px;background:#0d1537;">🍋</div>
-          <div id="reel3" style="border:1px solid #33448b;border-radius:12px;padding:18px 0;text-align:center;font-size:28px;background:#0d1537;">🔔</div>
+        <div id="reelsWrap" class="slot-machine">
+          <div id="reel1" class="slot-reel">🍒</div>
+          <div id="reel2" class="slot-reel">🍋</div>
+          <div id="reel3" class="slot-reel">🔔</div>
         </div>
 
         <div class="actions">
-          <button id="spinButton" class="btn btn-primary">Girar</button>
+          <button id="spinButton" class="btn btn-primary slot-spin-btn">Girar Agora</button>
           <a href="/games.html" class="btn btn-success" style="text-decoration:none;display:inline-block;">Menu de jogos</a>
         </div>
       </section>
