@@ -3,9 +3,10 @@ const playerLabel = document.getElementById("playerLabel");
 const balanceField = document.getElementById("balanceField");
 const multiplierField = document.getElementById("multiplierField");
 const targetCrashLabel = document.getElementById("targetCrashLabel");
-const leaderboardList = document.getElementById("leaderboardList");
 const wagerInput = document.getElementById("wagerInput");
 const autoCashoutInput = document.getElementById("autoCashoutInput");
+const soundToggle = document.getElementById("soundToggle");
+const effectsToggle = document.getElementById("effectsToggle");
 const startRoundButton = document.getElementById("startRoundButton");
 const cashoutButton = document.getElementById("cashoutButton");
 const quickButtons = document.querySelectorAll(".quick-btn");
@@ -19,12 +20,14 @@ const state = {
   inRound: false,
   round: null,
   multiplier: 1,
+  lastMultiplier: 1,
   hasSettled: false,
   path: [],
   particles: [],
-  leaderboard: [],
   profileEmail: "",
   profileRole: "",
+  soundEnabled: true,
+  effectsEnabled: true,
   roundNoise: {
     seedA: Math.random() * Math.PI * 2,
     seedB: Math.random() * Math.PI * 2,
@@ -59,25 +62,6 @@ function updateBalanceLabel() {
   balanceField.textContent = state.balance.toFixed(2);
 }
 
-function renderLeaderboard() {
-  leaderboardList.innerHTML = "";
-  state.leaderboard.forEach((item) => {
-    const row = document.createElement("div");
-    row.className = "leaderboard-item";
-    row.innerHTML = `<span>${item.name}</span><strong>${item.multiplier.toFixed(2)}x</strong>`;
-    leaderboardList.appendChild(row);
-  });
-}
-
-function buildInitialLeaderboard() {
-  const names = ["Luna", "Vitor", "Maya", "Rafa", "Clara", "Nexo"];
-  state.leaderboard = names.map((name) => ({
-    name,
-    multiplier: Number((1.1 + Math.random() * 2.7).toFixed(2))
-  }));
-  renderLeaderboard();
-}
-
 function resizeCanvas() {
   const width = Math.max(320, Math.floor(chartCanvas.parentElement.clientWidth - 2));
   const height = Math.max(260, Math.floor(width * 0.44));
@@ -96,7 +80,8 @@ function getMultiplier(elapsedMs) {
   const waveA = Math.sin(seconds * 4.2 + state.roundNoise.seedA) * state.roundNoise.amplitude;
   const waveB = Math.cos(seconds * 2.5 + state.roundNoise.seedB) * (state.roundNoise.amplitude * 0.6);
   const noisy = Math.max(1.0, base * (1 + waveA + waveB));
-  return Number(noisy.toFixed(2));
+  const stable = Math.max(state.lastMultiplier + 0.01, noisy);
+  return Number(stable.toFixed(2));
 }
 
 function toCanvasX(normalizedX) {
@@ -193,6 +178,7 @@ function drawRocket(x, y) {
 }
 
 function createCrashParticles() {
+  if (!state.effectsEnabled) return;
   if (state.path.length === 0) return;
   const last = state.path[state.path.length - 1];
   const x = toCanvasX(last.x);
@@ -228,6 +214,7 @@ function drawParticles() {
 }
 
 function playSound(type) {
+  if (!state.soundEnabled) return;
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   if (!AudioCtx) return;
   const ctx = new AudioCtx();
@@ -307,11 +294,6 @@ async function settle(cashoutAt) {
       playSound("crash");
       createCrashParticles();
     }
-    state.leaderboard = state.leaderboard.map((item) => ({
-      ...item,
-      multiplier: Number((1.1 + Math.random() * 5.4).toFixed(2))
-    }));
-    renderLeaderboard();
     setStatus(data.won ? "Vitoria na rodada" : "Rodada perdida", data.won ? "#1ecf8d" : "#ff5a83");
   } catch (error) {
     setStatus(error.message, "#ff5a83");
@@ -331,6 +313,7 @@ function runRoundLoop(startTime) {
 
   const elapsed = performance.now() - startTime;
   state.multiplier = getMultiplier(elapsed);
+  state.lastMultiplier = state.multiplier;
   multiplierField.textContent = `${state.multiplier.toFixed(2)}x`;
   state.path.push({
     x: Math.min(elapsed / state.round.durationMs, 1),
@@ -349,6 +332,11 @@ function runRoundLoop(startTime) {
   }
 
   requestAnimationFrame(() => runRoundLoop(startTime));
+}
+
+function animate() {
+  drawChart();
+  requestAnimationFrame(animate);
 }
 
 async function startRound() {
@@ -383,6 +371,7 @@ async function startRound() {
     };
     state.path = [{ x: 0, y: 1 }];
     state.multiplier = 1;
+    state.lastMultiplier = 1;
     targetCrashLabel.textContent = `${Number(data.crashPoint).toFixed(2)}x`;
     cashoutButton.disabled = false;
     setStatus("Rodada em andamento", "#1bddff");
@@ -413,14 +402,22 @@ quickButtons.forEach((button) => {
   });
 });
 
+soundToggle.addEventListener("change", () => {
+  state.soundEnabled = soundToggle.checked;
+});
+effectsToggle.addEventListener("change", () => {
+  state.effectsEnabled = effectsToggle.checked;
+  if (!state.effectsEnabled) {
+    state.particles = [];
+  }
+});
+
 window.addEventListener("resize", () => {
   resizeCanvas();
-  drawChart();
 });
 
 resizeCanvas();
-drawChart();
-buildInitialLeaderboard();
+animate();
 fetchMe().then((ok) => {
   if (ok) {
     setStatus("Sessão ativa. Boa sorte!", "#1ecf8d");

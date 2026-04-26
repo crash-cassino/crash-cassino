@@ -219,25 +219,23 @@ input {
   gap: 8px;
 }
 
-.leaderboard-list {
+.toggle-row {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  gap: 16px;
+  margin-bottom: 12px;
 }
 
-.leaderboard-item {
-  border: 1px solid #334387;
-  border-radius: 10px;
-  background: #121c42;
-  padding: 8px 10px;
+.toggle-row label {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  font-size: 13px;
+  gap: 6px;
+  margin: 0;
 }
 
-.leaderboard-item strong {
-  color: var(--accent-2);
+.toggle-row input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  accent-color: #1bddff;
 }
 
 .btn {

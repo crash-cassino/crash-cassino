@@ -58,6 +58,10 @@
             </div>
             <label>Auto cashout (x)</label>
             <input id="autoCashoutInput" type="number" min="1.01" step="0.01" value="2.00" />
+            <div class="toggle-row">
+              <label><input id="soundToggle" type="checkbox" checked /> Som</label>
+              <label><input id="effectsToggle" type="checkbox" checked /> Efeitos</label>
+            </div>
             <div class="actions">
               <button id="startRoundButton" class="btn btn-primary">Iniciar rodada</button>
               <button id="cashoutButton" class="btn btn-success" disabled>Cashout agora</button>
@@ -69,11 +73,6 @@
             <p>1. Defina aposta e auto cashout.</p>
             <p>2. Inicie a rodada e acompanhe a subida.</p>
             <p>3. Retire antes do crash para vencer.</p>
-          </div>
-
-          <div class="panel-card">
-            <h2>Leaderboard da sala</h2>
-            <div id="leaderboardList" class="leaderboard-list"></div>
           </div>
         </aside>
       </main>
