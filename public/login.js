@@ -54,7 +54,7 @@ async function login() {
       throw new Error(data.error || "Falha no login");
     }
     localStorage.setItem("crashUserToken", data.token);
-    window.location.href = "/user.html";
+    window.location.href = "/games.html";
   } catch (error) {
     setStatus(error.message, "#ff5d82");
   }
