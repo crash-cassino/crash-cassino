@@ -23,10 +23,75 @@ const symbols = {
 
 const spinner = ["🍒", "🍋", "🔔", "7️⃣", "💎"];
 let spinInterval = null;
+const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
 
 function setStatus(message, color) {
   statusText.textContent = message;
   statusText.style.color = color || "#9ca9d8";
+}
+
+async function unlockAudio() {
+  if (!AudioCtxClass) return;
+  if (!audioCtx) {
+    audioCtx = new AudioCtxClass();
+  }
+  if (audioCtx.state === "suspended") {
+    try {
+      await audioCtx.resume();
+    } catch (error) {
+      // Silent on browser restrictions. User interaction can retry.
+    }
+  }
+}
+
+function playTone({ type = "sine", startHz = 220, endHz = 220, attack = 0.02, decay = 0.18, gain = 0.09 }) {
+  if (!AudioCtxClass || !audioCtx || audioCtx.state !== "running") return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const amp = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(startHz, now);
+  if (endHz !== startHz) {
+    osc.frequency.exponentialRampToValueAtTime(Math.max(1, endHz), now + decay);
+  }
+  amp.gain.setValueAtTime(0.0001, now);
+  amp.gain.exponentialRampToValueAtTime(gain, now + attack);
+  amp.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+  osc.connect(amp);
+  amp.connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + decay + 0.02);
+}
+
+function playSound(type) {
+  if (!AudioCtxClass || !audioCtx || audioCtx.state !== "running") return;
+
+  if (type === "spin") {
+    playTone({ type: "sawtooth", startHz: 160, endHz: 360, attack: 0.02, decay: 0.2, gain: 0.06 });
+    return;
+  }
+
+  if (type === "win") {
+    const base = audioCtx.currentTime;
+    const notes = [520, 660, 820];
+    notes.forEach((hz, idx) => {
+      const osc = audioCtx.createOscillator();
+      const amp = audioCtx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(hz, base + idx * 0.09);
+      amp.gain.setValueAtTime(0.0001, base + idx * 0.09);
+      amp.gain.exponentialRampToValueAtTime(0.08, base + idx * 0.09 + 0.02);
+      amp.gain.exponentialRampToValueAtTime(0.0001, base + idx * 0.09 + 0.16);
+      osc.connect(amp);
+      amp.connect(audioCtx.destination);
+      osc.start(base + idx * 0.09);
+      osc.stop(base + idx * 0.09 + 0.18);
+    });
+    return;
+  }
+
+  playTone({ type: "square", startHz: 210, endHz: 85, attack: 0.015, decay: 0.22, gain: 0.07 });
 }
 
 function normalizeWager(value) {
@@ -88,6 +153,7 @@ function stopVisualSpin(finalReels) {
 }
 
 async function spin() {
+  await unlockAudio();
   const wager = normalizeWager(Number(wagerInput.value));
   wagerInput.value = String(wager);
   if (!Number.isFinite(wager) || wager < minWager || wager > maxWager) {
@@ -96,6 +162,7 @@ async function spin() {
   }
   spinButton.disabled = true;
   setStatus("Girando...", "#20ddff");
+  playSound("spin");
   startVisualSpin();
 
   try {
@@ -113,8 +180,10 @@ async function spin() {
       stopVisualSpin(data.reels || []);
       creditsField.textContent = Number(data.balance || 0).toFixed(2);
       if (data.won) {
+        playSound("win");
         setStatus(`Ganhou! x${Number(data.multiplier).toFixed(2)} - +${Number(data.payout).toFixed(2)} créditos`, "#1fcd8b");
       } else {
+        playSound("lose");
         setStatus("Não foi dessa vez", "#ff5d82");
       }
       spinButton.disabled = false;
@@ -140,4 +209,12 @@ wagerPlus.addEventListener("click", () => {
   const next = normalizeWager(Number(wagerInput.value) + 1);
   wagerInput.value = String(next);
 });
+
+document.addEventListener(
+  "pointerdown",
+  () => {
+    unlockAudio();
+  },
+  { once: true }
+);
 loadMe();
