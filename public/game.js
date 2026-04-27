@@ -2,13 +2,11 @@ const statusText = document.getElementById("statusText");
 const playerLabel = document.getElementById("playerLabel");
 const balanceField = document.getElementById("balanceField");
 const multiplierField = document.getElementById("multiplierField");
-const targetCrashLabel = document.getElementById("targetCrashLabel");
+const roundHint = document.getElementById("roundHint");
 const wagerInput = document.getElementById("wagerInput");
 const autoCashoutInput = document.getElementById("autoCashoutInput");
 const soundToggle = document.getElementById("soundToggle");
 const effectsToggle = document.getElementById("effectsToggle");
-const startRoundButton = document.getElementById("startRoundButton");
-const cashoutButton = document.getElementById("cashoutButton");
 const quickButtons = document.querySelectorAll(".quick-btn");
 const chartCanvas = document.getElementById("chartCanvas");
 const chartCtx = chartCanvas.getContext("2d");
@@ -19,21 +17,30 @@ let noiseBuffer = null;
 const token = localStorage.getItem("crashUserToken") || "";
 const minWager = 1;
 const maxWager = 10;
+const minAutoCashout = 3;
+const bettingWindowMs = 2500;
+const betweenRoundsMs = 1200;
 
 const state = {
   balance: 0,
+  phase: "idle",
   inRound: false,
   round: null,
   multiplier: 1,
   visualMultiplier: 1,
-  lastMultiplier: 1,
+  hasBet: false,
   hasSettled: false,
+  selectedWager: 0,
+  selectedAutoCashout: minAutoCashout,
   path: [],
   particles: [],
   profileEmail: "",
   profileRole: "",
   soundEnabled: true,
   effectsEnabled: true,
+  roundStartAt: 0,
+  nextRoundTimeout: null,
+  bettingTimeout: null,
   roundNoise: {
     seedA: Math.random() * Math.PI * 2,
     seedB: Math.random() * Math.PI * 2,
@@ -56,6 +63,12 @@ function setStatus(message, color) {
   statusText.style.color = color || "#eff4ff";
 }
 
+function setRoundHint(message) {
+  if (roundHint) {
+    roundHint.textContent = message;
+  }
+}
+
 function authHeaders(extra) {
   return {
     ...extra,
@@ -75,6 +88,11 @@ function updateBalanceLabel() {
 function normalizeWager(value) {
   if (!Number.isFinite(value)) return minWager;
   return Math.min(maxWager, Math.max(minWager, Math.floor(value)));
+}
+
+function normalizeAutoCashout(value) {
+  if (!Number.isFinite(value)) return minAutoCashout;
+  return Math.max(minAutoCashout, Number(value.toFixed(2)));
 }
 
 function resizeCanvas() {
@@ -100,15 +118,10 @@ function getVisualMultiplier(logicalMultiplier, elapsedMs) {
   const waveA = Math.sin(seconds * 4.2 + state.roundNoise.seedA) * state.roundNoise.amplitude;
   const waveB = Math.cos(seconds * 2.5 + state.roundNoise.seedB) * (state.roundNoise.amplitude * 0.55);
   const waveC = Math.sin(seconds * 6.8 + state.roundNoise.seedA * 0.7) * (state.roundNoise.amplitude * 0.25);
-
-  // Gentle drift changes the "personality" of each round without creating abrupt jumps.
   const driftEffect = state.roundNoise.drift * seconds;
-
-  // Single gaussian-like boost point creates a less repetitive mid-round shape.
   const burstDistance = seconds - state.roundNoise.burstAt;
   const burst = Math.exp(-(burstDistance * burstDistance) / (2 * state.roundNoise.burstWidth * state.roundNoise.burstWidth));
   const burstEffect = burst * state.roundNoise.burstStrength;
-
   const visualNoise = 1 + waveA + waveB + waveC + driftEffect + burstEffect;
   const boosted = logicalMultiplier * visualNoise;
   const clamped = Math.max(1, Math.min(boosted, logicalMultiplier * 1.08));
@@ -128,7 +141,6 @@ function toCanvasY(multiplier) {
 
 function drawChart() {
   chartCtx.clearRect(0, 0, drawCfg.cssWidth, drawCfg.cssHeight);
-
   chartCtx.fillStyle = "rgba(9, 14, 35, 0.9)";
   chartCtx.fillRect(0, 0, drawCfg.cssWidth, drawCfg.cssHeight);
 
@@ -146,42 +158,37 @@ function drawChart() {
     chartCtx.stroke();
   }
 
-  if (state.path.length < 2) {
-    return;
-  }
+  if (state.path.length >= 2) {
+    chartCtx.beginPath();
+    chartCtx.lineWidth = 4;
+    chartCtx.strokeStyle = state.inRound ? "#1bddff" : "#ff5a83";
+    chartCtx.shadowColor = state.inRound ? "rgba(27, 221, 255, 0.6)" : "rgba(255, 90, 131, 0.6)";
+    chartCtx.shadowBlur = 18;
 
-  chartCtx.beginPath();
-  chartCtx.lineWidth = 4;
-  chartCtx.strokeStyle = state.inRound ? "#1bddff" : "#ff5a83";
-  chartCtx.shadowColor = state.inRound ? "rgba(27, 221, 255, 0.6)" : "rgba(255, 90, 131, 0.6)";
-  chartCtx.shadowBlur = 18;
+    state.path.forEach((point, index) => {
+      const x = toCanvasX(point.x);
+      const y = toCanvasY(point.y);
+      if (index === 0) chartCtx.moveTo(x, y);
+      else chartCtx.lineTo(x, y);
+    });
+    chartCtx.stroke();
+    chartCtx.shadowBlur = 0;
 
-  state.path.forEach((point, index) => {
-    const x = toCanvasX(point.x);
-    const y = toCanvasY(point.y);
-    if (index === 0) {
-      chartCtx.moveTo(x, y);
-    } else {
-      chartCtx.lineTo(x, y);
+    const last = state.path[state.path.length - 1];
+    const prev = state.path.length >= 2 ? state.path[state.path.length - 2] : last;
+    const lastX = toCanvasX(last.x);
+    const lastY = toCanvasY(last.y);
+    const prevX = toCanvasX(prev.x);
+    const prevY = toCanvasY(prev.y);
+    const rocketAngle = Math.atan2(lastY - prevY, lastX - prevX) + Math.PI / 2;
+    chartCtx.fillStyle = state.inRound ? "#1ecf8d" : "#ff5a83";
+    chartCtx.beginPath();
+    chartCtx.arc(lastX, lastY, 6, 0, Math.PI * 2);
+    chartCtx.fill();
+
+    if (state.inRound) {
+      drawRocket(lastX, lastY, rocketAngle);
     }
-  });
-  chartCtx.stroke();
-  chartCtx.shadowBlur = 0;
-
-  const last = state.path[state.path.length - 1];
-  const prev = state.path.length >= 2 ? state.path[state.path.length - 2] : last;
-  const lastX = toCanvasX(last.x);
-  const lastY = toCanvasY(last.y);
-  const prevX = toCanvasX(prev.x);
-  const prevY = toCanvasY(prev.y);
-  const rocketAngle = Math.atan2(lastY - prevY, lastX - prevX) + Math.PI / 2;
-  chartCtx.fillStyle = state.inRound ? "#1ecf8d" : "#ff5a83";
-  chartCtx.beginPath();
-  chartCtx.arc(lastX, lastY, 6, 0, Math.PI * 2);
-  chartCtx.fill();
-
-  if (state.inRound) {
-    drawRocket(lastX, lastY, rocketAngle);
   }
 
   drawParticles();
@@ -214,22 +221,14 @@ function drawRocket(x, y, angleRadians) {
 }
 
 function createCrashParticles() {
-  if (!state.effectsEnabled) return;
-  if (state.path.length === 0) return;
+  if (!state.effectsEnabled || state.path.length === 0) return;
   const last = state.path[state.path.length - 1];
   const x = toCanvasX(last.x);
   const y = toCanvasY(last.y);
   state.particles = Array.from({ length: 26 }).map(() => {
     const angle = Math.random() * Math.PI * 2;
     const speed = 1.5 + Math.random() * 3.2;
-    return {
-      x,
-      y,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      life: 28 + Math.floor(Math.random() * 18),
-      ttl: 28 + Math.floor(Math.random() * 18)
-    };
+    return { x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 34, ttl: 34 };
   });
 }
 
@@ -250,15 +249,11 @@ function drawParticles() {
 }
 
 function playSound(type) {
-  if (!state.soundEnabled) return;
-  if (!AudioCtxClass) return;
-  if (!sharedAudioCtx) {
-    sharedAudioCtx = new AudioCtxClass();
-  }
+  if (!state.soundEnabled || !AudioCtxClass) return;
+  if (!sharedAudioCtx) sharedAudioCtx = new AudioCtxClass();
   const ctx = sharedAudioCtx;
-  if (ctx.state === "suspended") {
-    return;
-  }
+  if (ctx.state === "suspended") return;
+
   if (type === "launch") {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -272,29 +267,12 @@ function playSound(type) {
     osc.frequency.exponentialRampToValueAtTime(520, ctx.currentTime + 0.38);
     osc.start();
     osc.stop(ctx.currentTime + 0.45);
-
     if (!noiseBuffer) {
       const length = Math.floor(ctx.sampleRate * 0.45);
       noiseBuffer = ctx.createBuffer(1, length, ctx.sampleRate);
       const data = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < length; i += 1) {
-        data[i] = (Math.random() * 2 - 1) * 0.5;
-      }
+      for (let i = 0; i < length; i += 1) data[i] = (Math.random() * 2 - 1) * 0.5;
     }
-    const noiseSource = ctx.createBufferSource();
-    const noiseFilter = ctx.createBiquadFilter();
-    const noiseGain = ctx.createGain();
-    noiseFilter.type = "highpass";
-    noiseFilter.frequency.value = 700;
-    noiseSource.buffer = noiseBuffer;
-    noiseSource.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    noiseGain.connect(ctx.destination);
-    noiseGain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    noiseGain.gain.exponentialRampToValueAtTime(0.045, ctx.currentTime + 0.06);
-    noiseGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.42);
-    noiseSource.start();
-    noiseSource.stop(ctx.currentTime + 0.45);
     return;
   }
 
@@ -323,14 +301,12 @@ function playSound(type) {
 
 async function unlockAudio() {
   if (!AudioCtxClass) return;
-  if (!sharedAudioCtx) {
-    sharedAudioCtx = new AudioCtxClass();
-  }
+  if (!sharedAudioCtx) sharedAudioCtx = new AudioCtxClass();
   if (sharedAudioCtx.state === "suspended") {
     try {
       await sharedAudioCtx.resume();
     } catch (error) {
-      // Ignore browser resume errors; user can still retry by interacting.
+      // ignore
     }
   }
 }
@@ -343,13 +319,7 @@ async function fetchMe() {
   try {
     const response = await fetch("/auth/me", { headers: authHeaders() });
     const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || "Sessão inválida");
-    }
-    if (data.role !== "player") {
-      redirectLogin();
-      return false;
-    }
+    if (!response.ok || data.role !== "player") throw new Error("Sessão inválida");
     state.balance = Number(data.credits || 0);
     state.profileEmail = data.email;
     state.profileRole = data.role;
@@ -363,7 +333,7 @@ async function fetchMe() {
 }
 
 async function settle(cashoutAt) {
-  if (!state.round || state.hasSettled) return;
+  if (!state.round || state.hasSettled || !state.hasBet) return false;
   state.hasSettled = true;
   const roundRef = state.round;
   try {
@@ -371,139 +341,164 @@ async function settle(cashoutAt) {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
-        wager: Number(wagerInput.value),
+        wager: state.selectedWager,
         autoCashoutAt: cashoutAt,
         crashPoint: roundRef.crashPoint
       })
     });
     const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || "Falha no cashout");
-    }
+    if (!response.ok) throw new Error(data.error || "Falha no cashout");
     state.balance = Number(data.balance || state.balance);
     updateBalanceLabel();
-    const finalMultiplier = Number(roundRef.crashPoint || state.multiplier);
-    multiplierField.textContent = `${finalMultiplier.toFixed(2)}x`;
     if (data.won) {
       playSound("cashout");
+      setStatus(`Cashout com sucesso em ${Number(cashoutAt).toFixed(2)}x`, "#1ecf8d");
     } else {
       playSound("crash");
       createCrashParticles();
+      setStatus("Rodada perdida", "#ff5a83");
     }
-    setStatus(data.won ? "Vitoria na rodada" : "Rodada perdida", data.won ? "#1ecf8d" : "#ff5a83");
+    return true;
   } catch (error) {
     setStatus(error.message, "#ff5a83");
-  } finally {
-    state.inRound = false;
-    cashoutButton.disabled = true;
-    startRoundButton.disabled = false;
-    state.round = null;
+    return false;
   }
 }
 
-function runRoundLoop(startTime) {
-  if (!state.inRound || !state.round) {
-    drawChart();
-    return;
-  }
-
-  const elapsed = performance.now() - startTime;
-  state.multiplier = getMultiplier(elapsed);
-  state.visualMultiplier = getVisualMultiplier(state.multiplier, elapsed);
-  state.lastMultiplier = state.multiplier;
-  multiplierField.textContent = `${state.multiplier.toFixed(2)}x`;
-  state.path.push({
-    x: Math.min(elapsed / state.round.durationMs, 1),
-    y: state.visualMultiplier
-  });
-  drawChart();
-
-  const autoCashoutTarget = Number(autoCashoutInput.value);
-  if (!state.hasSettled && state.multiplier >= autoCashoutTarget) {
-    settle(autoCashoutTarget);
-    return;
-  }
-  if (!state.hasSettled && (state.multiplier >= state.round.crashPoint || elapsed >= state.round.durationMs)) {
-    settle(autoCashoutTarget);
-    return;
-  }
-
-  requestAnimationFrame(() => runRoundLoop(startTime));
+function clearTimers() {
+  if (state.bettingTimeout) clearTimeout(state.bettingTimeout);
+  if (state.nextRoundTimeout) clearTimeout(state.nextRoundTimeout);
+  state.bettingTimeout = null;
+  state.nextRoundTimeout = null;
 }
 
-function animate() {
-  drawChart();
-  requestAnimationFrame(animate);
+function scheduleNextRound(delayMs = betweenRoundsMs) {
+  clearTimers();
+  state.nextRoundTimeout = setTimeout(() => {
+    startBettingPhase();
+  }, delayMs);
 }
 
-async function startRound() {
-  await unlockAudio();
-  if (state.inRound) return;
-  const wager = normalizeWager(Number(wagerInput.value));
-  wagerInput.value = String(wager);
-  if (!Number.isFinite(wager) || wager < minWager || wager > maxWager) {
-    setStatus(`Aposta por rodada deve ser entre ${minWager} e ${maxWager}`, "#ff5a83");
-    return;
-  }
-  if (wager > state.balance) {
-    setStatus("Saldo insuficiente", "#ff5a83");
-    return;
-  }
+async function startBettingPhase() {
+  state.phase = "betting";
+  state.inRound = false;
+  state.hasBet = false;
+  state.hasSettled = false;
+  state.selectedWager = 0;
+  state.selectedAutoCashout = normalizeAutoCashout(Number(autoCashoutInput.value));
+  autoCashoutInput.value = state.selectedAutoCashout.toFixed(2);
+  multiplierField.textContent = "1.00x";
+  setRoundHint("Clique no canvas para apostar");
+  setStatus("Nova rodada em breve. Clique no canvas para entrar.", "#1bddff");
   try {
-    playSound("launch");
-    setStatus("Iniciando rodada...", "#1bddff");
-    startRoundButton.disabled = true;
-    const response = await fetch("/round/start", {
-      method: "POST",
-      headers: authHeaders()
-    });
+    const response = await fetch("/round/start", { method: "POST", headers: authHeaders() });
     const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || "Falha ao iniciar rodada");
-    }
+    if (!response.ok) throw new Error(data.error || "Falha ao preparar rodada");
     state.round = data;
-    state.inRound = true;
-    state.hasSettled = false;
-    state.roundNoise = {
-      seedA: Math.random() * Math.PI * 2,
-      seedB: Math.random() * Math.PI * 2,
-      amplitude: 0.02 + Math.random() * 0.055,
-      drift: (Math.random() - 0.5) * 0.012,
-      burstAt: 0.8 + Math.random() * 2.0,
-      burstWidth: 0.25 + Math.random() * 0.55,
-      burstStrength: (Math.random() - 0.25) * 0.06
-    };
     state.path = [{ x: 0, y: 1 }];
-    state.multiplier = 1;
-    state.visualMultiplier = 1;
-    state.lastMultiplier = 1;
-    targetCrashLabel.textContent = `${Number(data.crashPoint).toFixed(2)}x`;
-    cashoutButton.disabled = false;
-    setStatus("Rodada em andamento", "#1bddff");
-    playSound("launch");
-    runRoundLoop(performance.now());
+    state.bettingTimeout = setTimeout(() => {
+      launchRound();
+    }, bettingWindowMs);
   } catch (error) {
-    startRoundButton.disabled = false;
     setStatus(error.message, "#ff5a83");
+    scheduleNextRound(1800);
   }
 }
 
-cashoutButton.addEventListener("click", () => settle(state.multiplier));
-startRoundButton.addEventListener("click", startRound);
+function launchRound() {
+  if (!state.round) {
+    scheduleNextRound(900);
+    return;
+  }
+  state.phase = "running";
+  state.inRound = true;
+  state.roundStartAt = performance.now();
+  state.multiplier = 1;
+  state.visualMultiplier = 1;
+  state.roundNoise = {
+    seedA: Math.random() * Math.PI * 2,
+    seedB: Math.random() * Math.PI * 2,
+    amplitude: 0.02 + Math.random() * 0.055,
+    drift: (Math.random() - 0.5) * 0.012,
+    burstAt: 0.8 + Math.random() * 2.0,
+    burstWidth: 0.25 + Math.random() * 0.55,
+    burstStrength: (Math.random() - 0.25) * 0.06
+  };
+  setRoundHint(state.hasBet ? "Clique no canvas para cashout manual" : "Rodada em andamento");
+  setStatus(state.hasBet ? "Voando! Clique no canvas para sacar." : "Rodada sem aposta ativa.", "#cdd8ff");
+  playSound("launch");
+}
+
+async function endRunningRound() {
+  state.inRound = false;
+  state.phase = "settling";
+  state.round = null;
+  setRoundHint("Preparando próxima rodada...");
+  scheduleNextRound();
+}
+
+async function handleCanvasClick() {
+  await unlockAudio();
+  if (state.phase === "betting") {
+    const wager = normalizeWager(Number(wagerInput.value));
+    const autoCashout = normalizeAutoCashout(Number(autoCashoutInput.value));
+    wagerInput.value = String(wager);
+    autoCashoutInput.value = autoCashout.toFixed(2);
+    if (wager > state.balance) {
+      setStatus("Saldo insuficiente para essa aposta", "#ff5a83");
+      return;
+    }
+    state.hasBet = true;
+    state.selectedWager = wager;
+    state.selectedAutoCashout = autoCashout;
+    setStatus(`Aposta confirmada: ${wager.toFixed(2)} | Auto: ${autoCashout.toFixed(2)}x`, "#1ecf8d");
+    setRoundHint("Aposta confirmada para a próxima decolagem");
+    return;
+  }
+
+  if (state.phase === "running" && state.hasBet && !state.hasSettled) {
+    await settle(state.multiplier);
+    await endRunningRound();
+  }
+}
+
+function runRoundLoop() {
+  if (state.inRound && state.round) {
+    const elapsed = performance.now() - state.roundStartAt;
+    state.multiplier = getMultiplier(elapsed);
+    state.visualMultiplier = getVisualMultiplier(state.multiplier, elapsed);
+    multiplierField.textContent = `${state.multiplier.toFixed(2)}x`;
+    state.path.push({
+      x: Math.min(elapsed / state.round.durationMs, 1),
+      y: state.visualMultiplier
+    });
+
+    if (state.hasBet && !state.hasSettled && state.multiplier >= state.selectedAutoCashout) {
+      settle(state.selectedAutoCashout).then(endRunningRound);
+    } else if (state.multiplier >= state.round.crashPoint || elapsed >= state.round.durationMs) {
+      if (state.hasBet && !state.hasSettled) {
+        settle(state.selectedAutoCashout).then(endRunningRound);
+      } else {
+        playSound("crash");
+        createCrashParticles();
+        setStatus("Rodada encerrada. Próxima em instantes.", "#9bb0f0");
+        endRunningRound();
+      }
+    }
+  }
+
+  drawChart();
+  requestAnimationFrame(runRoundLoop);
+}
 
 quickButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const current = normalizeWager(Number(wagerInput.value) || minWager);
     const action = button.dataset.action;
-    if (action === "half") {
-      wagerInput.value = String(normalizeWager(Math.floor(current / 2)));
-    } else if (action === "double") {
-      wagerInput.value = String(normalizeWager(Math.min(Math.floor(state.balance), current * 2)));
-    } else if (action === "min") {
-      wagerInput.value = String(minWager);
-    } else if (action === "max") {
-      wagerInput.value = String(normalizeWager(Math.floor(state.balance)));
-    }
+    if (action === "half") wagerInput.value = String(normalizeWager(Math.floor(current / 2)));
+    else if (action === "double") wagerInput.value = String(normalizeWager(current * 2));
+    else if (action === "min") wagerInput.value = String(minWager);
+    else if (action === "max") wagerInput.value = String(maxWager);
   });
 });
 
@@ -511,37 +506,39 @@ wagerInput.addEventListener("input", () => {
   wagerInput.value = String(normalizeWager(Number(wagerInput.value)));
 });
 
+autoCashoutInput.addEventListener("input", () => {
+  autoCashoutInput.value = normalizeAutoCashout(Number(autoCashoutInput.value)).toFixed(2);
+});
+
 soundToggle.addEventListener("change", () => {
   state.soundEnabled = soundToggle.checked;
-  if (state.soundEnabled) {
-    unlockAudio();
-  }
+  if (state.soundEnabled) unlockAudio();
 });
+
 effectsToggle.addEventListener("change", () => {
   state.effectsEnabled = effectsToggle.checked;
-  if (!state.effectsEnabled) {
-    state.particles = [];
-  }
+  if (!state.effectsEnabled) state.particles = [];
 });
+
+chartCanvas.addEventListener("click", handleCanvasClick);
 
 window.addEventListener("resize", () => {
   resizeCanvas();
 });
 
-resizeCanvas();
-animate();
-fetchMe().then((ok) => {
-  if (ok) {
-    setStatus("Sessão ativa. Boa sorte!", "#1ecf8d");
-  }
-});
-
 document.addEventListener(
   "pointerdown",
   () => {
-    if (state.soundEnabled) {
-      unlockAudio();
-    }
+    if (state.soundEnabled) unlockAudio();
   },
   { once: true }
 );
+
+resizeCanvas();
+runRoundLoop();
+fetchMe().then((ok) => {
+  if (ok) {
+    setStatus("Sessão ativa. Aguardando rodada contínua...", "#1ecf8d");
+    startBettingPhase();
+  }
+});

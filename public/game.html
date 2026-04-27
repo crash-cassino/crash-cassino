@@ -41,8 +41,7 @@
         <section class="game-panel">
           <canvas id="chartCanvas" width="960" height="420"></canvas>
           <div class="chart-overlay">
-            <p>Crash point da rodada</p>
-            <strong id="targetCrashLabel">-</strong>
+            <p id="roundHint">Clique no canvas para apostar</p>
           </div>
         </section>
 
@@ -58,22 +57,18 @@
               <button class="quick-btn" data-action="max">Max</button>
             </div>
             <label>Auto cashout (x)</label>
-            <input id="autoCashoutInput" type="number" min="1.01" step="0.01" value="2.00" />
+            <input id="autoCashoutInput" type="number" min="3" step="0.01" value="3.00" />
             <div class="toggle-row">
               <label><input id="soundToggle" type="checkbox" checked /> Som</label>
               <label><input id="effectsToggle" type="checkbox" checked /> Efeitos</label>
-            </div>
-            <div class="actions">
-              <button id="startRoundButton" class="btn btn-primary">Iniciar rodada</button>
-              <button id="cashoutButton" class="btn btn-success" disabled>Cashout agora</button>
             </div>
           </div>
 
           <div class="panel-card">
             <h2>Como jogar</h2>
-            <p>1. Defina aposta e auto cashout.</p>
-            <p>2. Inicie a rodada e acompanhe a subida.</p>
-            <p>3. Retire antes do crash para vencer.</p>
+            <p>1. Defina aposta e auto cashout (min 3x).</p>
+            <p>2. Clique no canvas na janela de aposta para entrar na rodada.</p>
+            <p>3. Clique no canvas durante o voo para cashout manual.</p>
           </div>
         </aside>
       </main>
