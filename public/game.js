@@ -11,6 +11,8 @@ const quickButtons = document.querySelectorAll(".quick-btn");
 const chartCanvas = document.getElementById("chartCanvas");
 const gamePanel = document.querySelector(".game-panel");
 const chartCtx = chartCanvas.getContext("2d");
+const canvasBgImage = new Image();
+canvasBgImage.src = "/card-crash-neon.png";
 const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
 let sharedAudioCtx = null;
 let noiseBuffer = null;
@@ -156,6 +158,13 @@ function drawChart() {
   chartCtx.clearRect(0, 0, drawCfg.cssWidth, drawCfg.cssHeight);
   chartCtx.fillStyle = "rgba(9, 14, 35, 0.9)";
   chartCtx.fillRect(0, 0, drawCfg.cssWidth, drawCfg.cssHeight);
+  if (canvasBgImage.complete) {
+    chartCtx.save();
+    const opacity = state.phase === "betting" ? 0.2 : 0.12;
+    chartCtx.globalAlpha = opacity;
+    chartCtx.drawImage(canvasBgImage, 0, 0, drawCfg.cssWidth, drawCfg.cssHeight);
+    chartCtx.restore();
+  }
 
   chartCtx.strokeStyle = "rgba(255,255,255,0.06)";
   for (let x = 0; x < drawCfg.cssWidth; x += 70) {
