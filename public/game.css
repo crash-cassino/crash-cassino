@@ -336,11 +336,31 @@ input[type="number"] {
   }
 
   .hud-grid {
-    grid-template-columns: 1fr;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin-bottom: 10px;
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
+  }
+
+  .hud-card {
+    min-width: 132px;
+    flex: 1 0 132px;
+    padding: 7px 9px;
+    border-radius: 11px;
+    scroll-snap-align: start;
+  }
+
+  .hud-card span {
+    font-size: 10px;
+    letter-spacing: 0.5px;
   }
 
   .hud-card strong {
-    font-size: 22px;
+    font-size: 18px;
+    margin-top: 1px;
   }
 
   .chart-overlay {
