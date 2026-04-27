@@ -9,6 +9,7 @@ const soundToggle = document.getElementById("soundToggle");
 const effectsToggle = document.getElementById("effectsToggle");
 const quickButtons = document.querySelectorAll(".quick-btn");
 const chartCanvas = document.getElementById("chartCanvas");
+const gamePanel = document.querySelector(".game-panel");
 const chartCtx = chartCanvas.getContext("2d");
 const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
 let sharedAudioCtx = null;
@@ -67,6 +68,18 @@ function setRoundHint(message) {
   if (roundHint) {
     roundHint.textContent = message;
   }
+}
+
+function applyPhaseUi() {
+  document.body.dataset.phase = state.phase;
+  if (gamePanel) {
+    gamePanel.dataset.phase = state.phase;
+  }
+}
+
+function setPhase(phase) {
+  state.phase = phase;
+  applyPhaseUi();
 }
 
 function authHeaders(extra) {
@@ -380,7 +393,7 @@ function scheduleNextRound(delayMs = betweenRoundsMs) {
 }
 
 async function startBettingPhase() {
-  state.phase = "betting";
+  setPhase("betting");
   state.inRound = false;
   state.hasBet = false;
   state.hasSettled = false;
@@ -410,7 +423,7 @@ function launchRound() {
     scheduleNextRound(900);
     return;
   }
-  state.phase = "running";
+  setPhase("running");
   state.inRound = true;
   state.roundStartAt = performance.now();
   state.multiplier = 1;
@@ -431,7 +444,7 @@ function launchRound() {
 
 async function endRunningRound() {
   state.inRound = false;
-  state.phase = "settling";
+  setPhase("settling");
   state.round = null;
   setRoundHint("Preparando próxima rodada...");
   scheduleNextRound();
@@ -535,6 +548,7 @@ document.addEventListener(
 );
 
 resizeCanvas();
+applyPhaseUi();
 runRoundLoop();
 fetchMe().then((ok) => {
   if (ok) {
