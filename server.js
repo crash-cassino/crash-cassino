@@ -24,6 +24,9 @@ const MARGIN_SMOOTHING_ALPHA = Number(process.env.MARGIN_SMOOTHING_ALPHA || 0.12
 const MARGIN_HYSTERESIS = Number(process.env.MARGIN_HYSTERESIS || 0.015);
 const MIN_INSTANT_CRASH_CHANCE = Number(process.env.MIN_INSTANT_CRASH_CHANCE || 0.03);
 const MAX_INSTANT_CRASH_CHANCE = Number(process.env.MAX_INSTANT_CRASH_CHANCE || 0.42);
+const MIN_CRASH_POINT = Number(process.env.MIN_CRASH_POINT || 1.08);
+const MIN_INSTANT_CRASH_POINT = Number(process.env.MIN_INSTANT_CRASH_POINT || 1.12);
+const MAX_INSTANT_CRASH_POINT = Number(process.env.MAX_INSTANT_CRASH_POINT || 1.35);
 const MIN_WAGER_PER_ROUND = Number(process.env.MIN_WAGER_PER_ROUND || 1);
 const MAX_WAGER_PER_ROUND = Number(process.env.MAX_WAGER_PER_ROUND || 10);
 const SLOT_TARGET_PROFIT_MARGIN = Number(process.env.SLOT_TARGET_PROFIT_MARGIN || 0.14);
@@ -204,9 +207,19 @@ function createRound() {
   const currentMargin = calculateCurrentMargin();
   const smoothedMargin = getSmoothedMargin(currentMargin);
   const forceInstant = shouldForceInstantCrash(smoothedMargin);
-  const rawCrashPoint = forceInstant ? 1.0 : generateBaseCrashPoint();
   const maxCrashPoint = Number(Math.exp(ROUND_GROWTH_RATE * Math.max(0.1, ROUND_DURATION_MS / 1000)).toFixed(2));
-  const crashPoint = Number(Math.min(rawCrashPoint, Math.max(1.01, maxCrashPoint)).toFixed(2));
+  const minFloor = Math.min(MIN_CRASH_POINT, Math.max(1.01, maxCrashPoint - 0.01));
+  let rawCrashPoint;
+  if (forceInstant) {
+    const instantMin = Math.min(MIN_INSTANT_CRASH_POINT, Math.max(minFloor, maxCrashPoint - 0.01));
+    const instantMax = Math.max(instantMin, Math.min(MAX_INSTANT_CRASH_POINT, maxCrashPoint - 0.01));
+    rawCrashPoint = instantMin + randomFloat() * (instantMax - instantMin);
+  } else {
+    rawCrashPoint = generateBaseCrashPoint();
+  }
+  const crashPoint = Number(
+    Math.min(Math.max(rawCrashPoint, minFloor), Math.max(1.01, maxCrashPoint)).toFixed(2)
+  );
 
   gameState.rounds += 1;
   if (forceInstant) {
