@@ -323,7 +323,7 @@ input[type="number"] {
 
 @media (max-width: 700px) {
   .page {
-    padding: 12px;
+    padding: 10px;
   }
 
   .topbar {
@@ -332,35 +332,46 @@ input[type="number"] {
   }
 
   h1 {
-    font-size: 29px;
+    font-size: 24px;
+    margin: 3px 0;
+    line-height: 1.05;
+  }
+
+  .kicker {
+    font-size: 10px;
+  }
+
+  .player-label {
+    font-size: 11px;
   }
 
   .hud-grid {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     overflow-x: auto;
     overflow-y: hidden;
-    margin-bottom: 10px;
-    padding-bottom: 4px;
+    margin-bottom: 8px;
+    padding-bottom: 3px;
     scroll-snap-type: x proximity;
   }
 
   .hud-card {
-    min-width: 132px;
-    flex: 1 0 132px;
-    padding: 7px 9px;
-    border-radius: 11px;
+    min-width: 108px;
+    flex: 1 0 108px;
+    padding: 6px 7px;
+    border-radius: 10px;
     scroll-snap-align: start;
   }
 
   .hud-card span {
-    font-size: 10px;
-    letter-spacing: 0.5px;
+    font-size: 9px;
+    letter-spacing: 0.35px;
   }
 
   .hud-card strong {
-    font-size: 18px;
+    font-size: 15px;
     margin-top: 1px;
+    line-height: 1.1;
   }
 
   .chart-overlay {
@@ -374,5 +385,39 @@ input[type="number"] {
 
   .actions {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .page {
+    padding: 8px;
+  }
+
+  h1 {
+    font-size: 21px;
+  }
+
+  .player-label {
+    font-size: 10px;
+  }
+
+  .hud-grid {
+    gap: 5px;
+    margin-bottom: 7px;
+  }
+
+  .hud-card {
+    min-width: 96px;
+    flex-basis: 96px;
+    padding: 5px 6px;
+    border-radius: 9px;
+  }
+
+  .hud-card span {
+    font-size: 8px;
+  }
+
+  .hud-card strong {
+    font-size: 13px;
   }
 }
